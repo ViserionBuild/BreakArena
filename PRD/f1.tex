@@ -1,0 +1,571 @@
+Below is a detailed PRD in LaTeX format for your Call Break Scoreboard Tool project.
+
+You can directly paste this into:
+
+* [Overleaf](https://www.overleaf.com?utm_source=chatgpt.com)
+* local LaTeX editor
+* VSCode + LaTeX Workshop
+
+---
+
+```latex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{graphicx}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue
+}
+
+\title{
+    \Huge \textbf{Call Break Scoreboard Tool}\\
+    \Large Product Requirements Document (PRD)
+}
+
+\author{Prepared For Development}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Project Overview}
+
+\subsection{Project Name}
+Call Break Scoreboard Tool
+
+\subsection{Objective}
+
+The objective of this project is to build a modern offline-friendly web application for tracking and monitoring Call Break game scores among 4 players.
+
+The platform should provide:
+\begin{itemize}
+    \item Fast score entry
+    \item Real-time rankings
+    \item Graphical score analytics
+    \item Match history tracking
+    \item Player management
+    \item Offline usability
+\end{itemize}
+
+The application will be optimized for:
+\begin{itemize}
+    \item Mobile devices
+    \item Tablets
+    \item Desktop browsers
+\end{itemize}
+
+% ============================================================
+\section{Technology Stack}
+
+\subsection{Frontend}
+\begin{itemize}
+    \item React
+    \item TypeScript
+    \item TailwindCSS
+    \item Zustand (State Management)
+    \item React Router
+    \item Recharts / Chart.js
+    \item PWA Support
+\end{itemize}
+
+\subsection{Backend}
+\begin{itemize}
+    \item Node.js
+    \item Express.js
+    \item REST API
+\end{itemize}
+
+\subsection{Database}
+\begin{itemize}
+    \item Supabase PostgreSQL
+\end{itemize}
+
+\subsection{Deployment}
+\begin{itemize}
+    \item Frontend: Vercel
+    \item Backend: Railway / Render
+    \item Database: Supabase Cloud
+\end{itemize}
+
+% ============================================================
+\section{Core Features}
+
+\subsection{Player Management}
+\begin{itemize}
+    \item Add player
+    \item Remove player
+    \item Edit player details
+    \item Save player profiles
+    \item Player statistics
+\end{itemize}
+
+\subsection{Match Management}
+\begin{itemize}
+    \item Create new match
+    \item Select 4 players
+    \item Arrange player order
+    \item Start/Pause/End match
+    \item Save match history
+\end{itemize}
+
+\subsection{Scoreboard}
+\begin{itemize}
+    \item Round-wise score entry
+    \item Running totals
+    \item Live rankings
+    \item Rank movement indicators
+    \item Undo/Edit scores
+\end{itemize}
+
+\subsection{Analytics}
+\begin{itemize}
+    \item Score progression graph
+    \item Ranking progression graph
+    \item Win percentage
+    \item Average score
+    \item Match history analytics
+\end{itemize}
+
+\subsection{Offline Support}
+\begin{itemize}
+    \item PWA installation
+    \item Local caching
+    \item IndexedDB support
+    \item Sync when internet returns
+\end{itemize}
+
+% ============================================================
+\section{System Architecture}
+
+\subsection{High-Level Architecture}
+
+\begin{center}
+Frontend (React)
+$\downarrow$
+
+REST API (Node + Express)
+$\downarrow$
+
+Supabase PostgreSQL Database
+\end{center}
+
+% ============================================================
+\section{Frontend Architecture}
+
+\subsection{Frontend Folder Structure}
+
+\begin{lstlisting}[basicstyle=\ttfamily\small]
+src/
+|
+|-- components/
+|   |-- scoreboard/
+|   |-- graphs/
+|   |-- players/
+|   |-- ui/
+|
+|-- pages/
+|   |-- Dashboard.tsx
+|   |-- MatchSetup.tsx
+|   |-- LiveMatch.tsx
+|   |-- MatchHistory.tsx
+|   |-- PlayerManagement.tsx
+|
+|-- services/
+|   |-- api.ts
+|   |-- matchService.ts
+|
+|-- store/
+|   |-- useMatchStore.ts
+|   |-- usePlayerStore.ts
+|
+|-- hooks/
+|
+|-- types/
+|
+|-- utils/
+|
+|-- routes/
+|
+|-- App.tsx
+\end{lstlisting}
+
+% ============================================================
+\section{Frontend Modules}
+
+\subsection{Dashboard}
+Displays:
+\begin{itemize}
+    \item Recent matches
+    \item Quick start
+    \item Player rankings
+    \item Statistics overview
+\end{itemize}
+
+\subsection{Player Management}
+Features:
+\begin{itemize}
+    \item Add/Edit/Delete players
+    \item Player avatars
+    \item Lifetime statistics
+\end{itemize}
+
+\subsection{Match Setup}
+Features:
+\begin{itemize}
+    \item Select 4 players
+    \item Drag-and-drop ordering
+    \item Configure rounds
+\end{itemize}
+
+\subsection{Live Match Screen}
+Features:
+\begin{itemize}
+    \item Score entry table
+    \item Real-time ranking
+    \item Round history
+    \item Undo functionality
+    \item Graphs
+\end{itemize}
+
+\subsection{Analytics Screen}
+Features:
+\begin{itemize}
+    \item Score graphs
+    \item Rank progression
+    \item Historical trends
+\end{itemize}
+
+% ============================================================
+\section{Backend Architecture}
+
+\subsection{Backend Folder Structure}
+
+\begin{lstlisting}[basicstyle=\ttfamily\small]
+server/
+|
+|-- controllers/
+|
+|-- routes/
+|
+|-- middleware/
+|
+|-- services/
+|
+|-- database/
+|
+|-- utils/
+|
+|-- app.js
+|
+|-- server.js
+\end{lstlisting}
+
+% ============================================================
+\section{Backend Modules}
+
+\subsection{Authentication Module (Optional)}
+\begin{itemize}
+    \item Guest access
+    \item Optional login
+\end{itemize}
+
+\subsection{Player Service}
+Responsibilities:
+\begin{itemize}
+    \item Create player
+    \item Update player
+    \item Delete player
+    \item Fetch player stats
+\end{itemize}
+
+\subsection{Match Service}
+Responsibilities:
+\begin{itemize}
+    \item Create match
+    \item Add rounds
+    \item Update scores
+    \item Calculate rankings
+\end{itemize}
+
+\subsection{Analytics Service}
+Responsibilities:
+\begin{itemize}
+    \item Generate score graphs
+    \item Rank movement tracking
+    \item Statistical calculations
+\end{itemize}
+
+% ============================================================
+\section{Database Architecture}
+
+\subsection{Database Tables}
+
+\subsubsection{users}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{5cm}|}
+\hline
+Column & Type & Description \\
+\hline
+id & UUID & Primary key \\
+\hline
+name & VARCHAR & Player name \\
+\hline
+avatar & TEXT & Avatar URL \\
+\hline
+created\_at & TIMESTAMP & Creation time \\
+\hline
+\end{longtable}
+
+% ------------------------------------------------------------
+
+\subsubsection{matches}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{5cm}|}
+\hline
+Column & Type & Description \\
+\hline
+id & UUID & Primary key \\
+\hline
+status & VARCHAR & active/completed \\
+\hline
+winner\_id & UUID & Winner reference \\
+\hline
+created\_at & TIMESTAMP & Match creation time \\
+\hline
+ended\_at & TIMESTAMP & Match end time \\
+\hline
+\end{longtable}
+
+% ------------------------------------------------------------
+
+\subsubsection{match\_players}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{5cm}|}
+\hline
+Column & Type & Description \\
+\hline
+id & UUID & Primary key \\
+\hline
+match\_id & UUID & Match reference \\
+\hline
+user\_id & UUID & Player reference \\
+\hline
+seat\_order & INTEGER & Playing order \\
+\hline
+\end{longtable}
+
+% ------------------------------------------------------------
+
+\subsubsection{rounds}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{5cm}|}
+\hline
+Column & Type & Description \\
+\hline
+id & UUID & Primary key \\
+\hline
+match\_id & UUID & Match reference \\
+\hline
+round\_number & INTEGER & Round number \\
+\hline
+created\_at & TIMESTAMP & Round creation time \\
+\hline
+\end{longtable}
+
+% ------------------------------------------------------------
+
+\subsubsection{round\_scores}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{5cm}|}
+\hline
+Column & Type & Description \\
+\hline
+id & UUID & Primary key \\
+\hline
+round\_id & UUID & Round reference \\
+\hline
+user\_id & UUID & Player reference \\
+\hline
+score & INTEGER & Round score \\
+\hline
+bid & INTEGER & Player bid \\
+\hline
+actual\_wins & INTEGER & Actual tricks won \\
+\hline
+\end{longtable}
+
+% ============================================================
+\section{API Design}
+
+\subsection{Player APIs}
+
+\begin{itemize}
+    \item GET /players
+    \item POST /players
+    \item PUT /players/:id
+    \item DELETE /players/:id
+\end{itemize}
+
+\subsection{Match APIs}
+
+\begin{itemize}
+    \item POST /matches
+    \item GET /matches/:id
+    \item PUT /matches/:id
+    \item DELETE /matches/:id
+\end{itemize}
+
+\subsection{Round APIs}
+
+\begin{itemize}
+    \item POST /rounds
+    \item PUT /rounds/:id
+    \item DELETE /rounds/:id
+\end{itemize}
+
+% ============================================================
+\section{Graph System}
+
+\subsection{Score Progress Graph}
+
+Displays:
+\begin{itemize}
+    \item X-axis = rounds
+    \item Y-axis = cumulative score
+    \item 4 player lines
+\end{itemize}
+
+\subsection{Rank Progress Graph}
+
+Displays:
+\begin{itemize}
+    \item Rank changes over time
+    \item Position movement
+    \item Overtake visualization
+\end{itemize}
+
+% ============================================================
+\section{State Management}
+
+\subsection{Global State}
+
+Managed using Zustand.
+
+\subsection{Stored States}
+\begin{itemize}
+    \item Current match
+    \item Player data
+    \item Rankings
+    \item Match history
+    \item UI preferences
+\end{itemize}
+
+% ============================================================
+\section{Offline Strategy}
+
+\subsection{Offline Features}
+
+\begin{itemize}
+    \item IndexedDB caching
+    \item Service worker
+    \item Local score persistence
+    \item Background sync
+\end{itemize}
+
+\subsection{Sync Strategy}
+
+\begin{itemize}
+    \item Local-first writes
+    \item Queue unsynced actions
+    \item Sync when online
+\end{itemize}
+
+% ============================================================
+\section{Security}
+
+\subsection{Security Features}
+
+\begin{itemize}
+    \item JWT authentication (optional)
+    \item Rate limiting
+    \item Input validation
+    \item SQL injection protection
+\end{itemize}
+
+% ============================================================
+\section{Performance Requirements}
+
+\begin{itemize}
+    \item Initial load $<$ 2 seconds
+    \item Score update latency $<$ 100ms
+    \item Offline support enabled
+    \item Mobile responsive UI
+\end{itemize}
+
+% ============================================================
+\section{Future Enhancements}
+
+\begin{itemize}
+    \item Multiplayer online sync
+    \item Spectator mode
+    \item Tournament system
+    \item AI score predictions
+    \item Voice score entry
+    \item Export to PDF
+\end{itemize}
+
+% ============================================================
+\section{Development Roadmap}
+
+\subsection{Phase 1 - MVP}
+\begin{itemize}
+    \item Player management
+    \item Match setup
+    \item Scoreboard
+    \item Rankings
+\end{itemize}
+
+\subsection{Phase 2}
+\begin{itemize}
+    \item Graphs
+    \item Analytics
+    \item Match history
+\end{itemize}
+
+\subsection{Phase 3}
+\begin{itemize}
+    \item Offline sync
+    \item PWA support
+    \item Realtime multiplayer
+\end{itemize}
+
+% ============================================================
+\section{Conclusion}
+
+The Call Break Scoreboard Tool aims to deliver a fast, intuitive, and highly interactive experience for offline and online Call Break score management.
+
+The architecture is designed to be:
+\begin{itemize}
+    \item Scalable
+    \item Mobile-first
+    \item Offline-capable
+    \item Maintainable
+\end{itemize}
+
+\end{document}
+```
