@@ -109,10 +109,47 @@
   .score-neutral { @apply text-white/60; }
 
   .page-container {
-    @apply min-h-screen pb-24;
+    @apply min-h-screen pb-8;
     background: radial-gradient(ellipse at top, rgba(30, 20, 60, 0.5) 0%, transparent 70%),
                 radial-gradient(ellipse at bottom right, rgba(20, 40, 30, 0.3) 0%, transparent 60%),
                 #0a0a0f;
+  }
+
+  .app-shell {
+    @apply min-h-screen flex;
+  }
+
+  .app-main {
+    @apply min-w-0 flex-1;
+  }
+
+  .app-sidebar {
+    @apply sticky top-0 z-40 flex h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-ink-900/95 transition-all duration-300;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .app-sidebar.is-collapsed {
+    @apply w-[76px];
+  }
+
+  .sidebar-button {
+    @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/55 transition-colors hover:bg-white/5 hover:text-white;
+  }
+
+  .sidebar-button.active {
+    @apply bg-gold-500/15 text-gold-400;
+  }
+
+  .sidebar-section-label {
+    @apply px-2 pb-2 text-[10px] font-semibold uppercase tracking-widest text-white/30;
+  }
+
+  .sidebar-match {
+    @apply flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-white/5;
+  }
+
+  .sidebar-match.active {
+    @apply bg-white/[0.08] ring-1 ring-gold-500/20;
   }
 
   .nav-item {
@@ -187,7 +224,181 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .score-table tr:hover td {
-  @apply bg-white/3;
+  @apply bg-white/[0.3];
+}
+
+.match-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.match-side-panel {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 1180px) {
+  .match-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .match-side-panel {
+    position: static;
+  }
+}
+
+.ranking-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 320px;
+}
+
+.ranking-table th {
+  @apply px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-white/40;
+  background: rgba(15, 15, 24, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ranking-table td {
+  @apply px-4 py-3 border-b border-white/5 align-middle;
+  background: rgba(10, 10, 16, 0.45);
+}
+
+.ranking-table tbody tr:nth-child(odd) td {
+  background: rgba(18, 18, 28, 0.55);
+}
+
+.ranking-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Round table (tabular UI) */
+.round-table-wrap {
+  overflow-x: auto;
+}
+
+.round-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 720px;
+}
+
+.round-table thead th {
+  @apply text-xs font-semibold text-white/60 uppercase tracking-widest px-4 py-3 text-center;
+  background: rgba(15, 15, 24, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.round-table tbody td,
+.round-table tfoot td {
+  @apply px-3 py-2 text-center border-b border-white/5;
+  background: rgba(10, 10, 16, 0.6);
+}
+
+.round-table tbody tr:nth-child(odd) td {
+  background: rgba(18, 18, 28, 0.7);
+}
+
+.round-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.round-table tfoot td {
+  background: rgba(12, 12, 20, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.round-col {
+  @apply text-left px-3;
+  width: 108px;
+  min-width: 108px;
+}
+
+.cell-button {
+  @apply w-full flex flex-col items-center gap-0.5 py-2 rounded-lg transition-colors;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cell-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cell-meta {
+  @apply text-[10px] text-white/30 font-mono;
+}
+
+.cell-score {
+  @apply font-mono text-xs;
+}
+
+.cell-editor {
+  @apply flex flex-col items-center gap-1 py-2;
+}
+
+.cell-editor-row {
+  @apply flex items-center gap-1;
+}
+
+.cell-label {
+  @apply text-[10px] text-white/30;
+}
+
+.cell-input {
+  @apply w-10 rounded-md bg-white/5 text-white text-xs font-mono text-center border border-white/10 focus:outline-none focus:border-white/30;
+}
+
+.cell-input:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+/* actual == bid  → Green */
+.cell-input.match {
+  background: #16a34a;
+  color: white;
+}
+
+/* actual < 0 → Pink */
+.cell-input.negative {
+  background: #ec4899;
+  color: white;
+}
+
+/* decimal >= .3 → Red */
+.cell-input.over {
+  background: #dc2626;
+  color: white;
+}
+
+.cell-actions {
+  @apply flex items-center gap-1;
+}
+
+.cell-action {
+  @apply w-6 h-6 rounded-md transition-colors;
+}
+
+.cell-action.save {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.cell-action.save:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.cell-action.cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cell-action.cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Tooltip */

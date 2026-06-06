@@ -54,7 +54,8 @@ callbreak-backend/
     ├── 04_views.sql            # Analytical views
     ├── 05_seed_data.sql        # Dev / test data
     ├── 06_teardown.sql         # ⚠️ Drop everything (dev only)
-    └── 07_useful_queries.sql   # Ad-hoc reference queries
+    ├── 07_useful_queries.sql   # Ad-hoc reference queries
+    └── 08_frontend_alignment.sql # Migration for React frontend (color, total_rounds, score constraints)
 ```
 
 ---
@@ -85,6 +86,7 @@ Open the **Supabase SQL Editor** and run the scripts in order:
 03_rls_policies.sql
 04_views.sql
 05_seed_data.sql   ← optional, dev only
+08_frontend_alignment.sql  ← required if DB was created before frontend integration
 ```
 
 ### 4. Start the server
@@ -133,8 +135,17 @@ Base URL: `http://localhost:3000/api/v1`
 
 **POST /matches body:**
 ```json
-{ "player_ids": ["uuid1", "uuid2", "uuid3", "uuid4"] }
+{ "player_ids": ["uuid1", "uuid2", "uuid3", "uuid4"], "total_rounds": 10 }
 ```
+
+Creates the match, assigns seats, and pre-creates empty round rows for live score entry.
+
+**PATCH /rounds/:id/scores/:userId body:**
+```json
+{ "bid": 3, "actual_wins": 3.3 }
+```
+
+Updates a single score cell (used by the live match table).
 
 **PUT /matches/:id body:**
 ```json

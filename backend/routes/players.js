@@ -16,26 +16,20 @@ const playerBody = [
     .withMessage('Name max 80 characters'),
   body('avatar')
     .optional({ nullable: true })
-    .isURL()
-    .withMessage('Avatar must be a valid URL'),
+    .isString()
+    .isLength({ max: 32 })
+    .withMessage('Avatar must be a short string (emoji or URL)'),
+  body('color')
+    .optional({ nullable: true })
+    .matches(/^#[0-9A-Fa-f]{6}$/)
+    .withMessage('Color must be a hex value like #fbbf24'),
 ];
 
-// GET /players
 router.get('/', controller.listPlayers);
-
-// GET /players/:id
 router.get('/:id', uuidParam, validate, controller.getPlayer);
-
-// GET /players/:id/stats
 router.get('/:id/stats', uuidParam, validate, controller.getPlayerStats);
-
-// POST /players
 router.post('/', playerBody, validate, controller.createPlayer);
-
-// PUT /players/:id
 router.put('/:id', uuidParam, ...playerBody, validate, controller.updatePlayer);
-
-// DELETE /players/:id
 router.delete('/:id', uuidParam, validate, controller.deletePlayer);
 
 module.exports = router;

@@ -12,22 +12,14 @@ CREATE INDEX IF NOT EXISTS idx_matches_status
 CREATE INDEX IF NOT EXISTS idx_matches_created_at
     ON matches(created_at DESC);
 
--- Find all matches a player is in
-CREATE INDEX IF NOT EXISTS idx_match_players_user_id
-    ON match_players(user_id);
-
--- Find all players in a match (common join)
-CREATE INDEX IF NOT EXISTS idx_match_players_match_id
-    ON match_players(match_id);
+-- Find all matches a player is in (via p1..p4 columns)
+CREATE INDEX IF NOT EXISTS idx_matches_p1_id ON matches(p1_id);
+CREATE INDEX IF NOT EXISTS idx_matches_p2_id ON matches(p2_id);
+CREATE INDEX IF NOT EXISTS idx_matches_p3_id ON matches(p3_id);
+CREATE INDEX IF NOT EXISTS idx_matches_p4_id ON matches(p4_id);
 
 -- Rounds ordered within a match
 CREATE INDEX IF NOT EXISTS idx_rounds_match_id_round_number
     ON rounds(match_id, round_number);
 
--- Score lookup by round
-CREATE INDEX IF NOT EXISTS idx_round_scores_round_id
-    ON round_scores(round_id);
-
--- Score lookup by player (for stats)
-CREATE INDEX IF NOT EXISTS idx_round_scores_user_id
-    ON round_scores(user_id);
+-- round_scores table removed; scores are now columns on the rounds table

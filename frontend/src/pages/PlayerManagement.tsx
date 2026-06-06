@@ -18,25 +18,33 @@ export default function PlayerManagement() {
   const [newAvatar, setNewAvatar] = useState('♠️');
   const [editing, setEditing] = useState<EditState | null>(null);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim()) return;
-    addPlayer(newName.trim(), newAvatar);
-    setNewName('');
-    setNewAvatar('♠️');
-    setShowAdd(false);
+    try {
+      await addPlayer(newName.trim(), newAvatar);
+      setNewName('');
+      setNewAvatar('♠️');
+      setShowAdd(false);
+    } catch {
+      // Error surfaced via global store banner
+    }
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editing || !editing.name.trim()) return;
-    updatePlayer(editing.id, editing.name.trim(), editing.avatar);
-    setEditing(null);
+    try {
+      await updatePlayer(editing.id, editing.name.trim(), editing.avatar);
+      setEditing(null);
+    } catch {
+      // Error surfaced via global store banner
+    }
   };
 
   const sortedPlayers = [...players].sort((a, b) => b.stats.wins - a.stats.wins);
 
   return (
     <div className="page-container">
-      <div className="max-w-lg mx-auto px-4 pt-6">
+      <div className="w-full max-w-5xl mx-auto px-6 lg:px-8 pt-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 animate-fade-in">
           <div>

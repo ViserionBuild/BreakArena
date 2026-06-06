@@ -84,7 +84,7 @@ export default function ScoreEntry({ players, onSubmit, onCancel, roundNumber }:
         </div>
 
         <div className="space-y-3 mb-5">
-          {entries.map((entry, i) => {
+          {entries.map((entry) => {
             const player = players.find((p) => p.id === entry.playerId);
             if (!player) return null;
             const score = calcScore(entry.bid, entry.actualWins);

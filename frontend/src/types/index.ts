@@ -19,8 +19,10 @@ export interface Match {
   id: string;
   players: MatchPlayer[];
   rounds: Round[];
-  status: 'active' | 'completed';
+  status: 'active' | 'paused' | 'completed';
   winnerId?: string;
+  matchDate: string;
+  matchNumber: number;
   createdAt: string;
   endedAt?: string;
   totalRounds?: number;

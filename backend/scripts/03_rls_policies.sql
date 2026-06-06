@@ -9,9 +9,7 @@
 -- ── Enable RLS on all tables ────────────────────────────────
 ALTER TABLE users         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE match_players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rounds        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE round_scores  ENABLE ROW LEVEL SECURITY;
 
 -- ── USERS ───────────────────────────────────────────────────
 -- Public can read all players
@@ -47,16 +45,6 @@ CREATE POLICY "matches_update_public"
 CREATE POLICY "matches_delete_public"
     ON matches FOR DELETE USING (true);
 
--- ── MATCH_PLAYERS ────────────────────────────────────────────
-CREATE POLICY "match_players_select_public"
-    ON match_players FOR SELECT USING (true);
-
-CREATE POLICY "match_players_insert_public"
-    ON match_players FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "match_players_delete_public"
-    ON match_players FOR DELETE USING (true);
-
 -- ── ROUNDS ───────────────────────────────────────────────────
 CREATE POLICY "rounds_select_public"
     ON rounds FOR SELECT USING (true);
@@ -67,15 +55,7 @@ CREATE POLICY "rounds_insert_public"
 CREATE POLICY "rounds_delete_public"
     ON rounds FOR DELETE USING (true);
 
--- ── ROUND_SCORES ─────────────────────────────────────────────
-CREATE POLICY "round_scores_select_public"
-    ON round_scores FOR SELECT USING (true);
+CREATE POLICY "rounds_update_public"
+    ON rounds FOR UPDATE USING (true);
 
-CREATE POLICY "round_scores_insert_public"
-    ON round_scores FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "round_scores_update_public"
-    ON round_scores FOR UPDATE USING (true);
-
-CREATE POLICY "round_scores_delete_public"
-    ON round_scores FOR DELETE USING (true);
+-- round_scores table removed: scores are now columns on rounds

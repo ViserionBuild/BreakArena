@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import PlayerAvatar from '../components/ui/PlayerAvatar';
 
 export default function MatchSetup() {
-  const { players, createMatch, setPage } = useAppStore();
+  const { players, createMatch, setPage, isSaving } = useAppStore();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [totalRounds, setTotalRounds] = useState(10);
 
@@ -24,18 +24,21 @@ export default function MatchSetup() {
     setSelectedIds(next);
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (selectedIds.length !== 4) return;
-    const matchId = createMatch(selectedIds, totalRounds);
-    console.log('Created match:', matchId);
-    setPage('liveMatch');
+    try {
+      await createMatch(selectedIds, totalRounds);
+      setPage('liveMatch');
+    } catch {
+      // Error surfaced via global store banner
+    }
   };
 
   const ROUND_OPTIONS = [5, 8, 10, 13, 15, 20];
 
   return (
     <div className="page-container">
-      <div className="max-w-lg mx-auto px-4 pt-6">
+      <div className="w-full max-w-4xl mx-auto px-6 lg:px-8 pt-6">
         {/* Header */}
         <div className="mb-8 animate-fade-in">
           <h1 className="font-display text-3xl font-bold text-white">New Match</h1>
@@ -147,12 +150,12 @@ export default function MatchSetup() {
         {/* Start button */}
         <button
           onClick={handleStart}
-          disabled={selectedIds.length !== 4}
+          disabled={selectedIds.length !== 4 || isSaving}
           className="btn-primary w-full rounded-2xl py-4 text-lg font-semibold flex items-center justify-center gap-3 disabled:opacity-30 disabled:cursor-not-allowed animate-slide-up"
           style={{ animationDelay: '0.1s' }}
         >
           <Play size={22} />
-          Start Match
+          {isSaving ? 'Starting...' : 'Start Match'}
         </button>
 
         <div className="h-8" />

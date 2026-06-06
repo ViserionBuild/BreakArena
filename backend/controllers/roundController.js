@@ -1,4 +1,6 @@
+const supabase = require('../database/supabase');
 const roundService = require('../services/roundService');
+const matchService = require('../services/matchService');
 const { sendSuccess, sendError } = require('../utils/response');
 
 const createRound = async (req, res, next) => {
@@ -23,8 +25,9 @@ const updateRound = async (req, res, next) => {
 
 const deleteRound = async (req, res, next) => {
   try {
-    await roundService.deleteRound(req.params.id);
-    sendSuccess(res, null, 'Round deleted');
+    const matchId = await roundService.deleteRound(req.params.id);
+    const match = await matchService.getMatchById(matchId);
+    sendSuccess(res, match, 'Round deleted');
   } catch (err) {
     next(err);
   }
@@ -41,4 +44,35 @@ const getRoundsForMatch = async (req, res, next) => {
   }
 };
 
-module.exports = { createRound, updateRound, deleteRound, getRoundsForMatch };
+const patchRoundScore = async (req, res, next) => {
+  try {
+    const { bid, actual_wins } = req.body;
+    await roundService.patchRoundScore(
+      req.params.id,
+      req.params.userId,
+      Number(bid),
+      Number(actual_wins)
+    );
+
+    const { data: round, error } = await supabase
+      .from('rounds')
+      .select('match_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) throw error;
+
+    const match = await matchService.getMatchById(round.match_id);
+    sendSuccess(res, match, 'Score updated');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  createRound,
+  updateRound,
+  patchRoundScore,
+  deleteRound,
+  getRoundsForMatch,
+};

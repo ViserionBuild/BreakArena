@@ -9,7 +9,7 @@ A modern, offline-friendly scoreboard app for Call Break card games. Built with 
 - 📊 **Analytics** — Win rates, avg scores, skill radar charts
 - 📈 **Score Graphs** — Visual score progression during matches
 - 🕐 **Match History** — Browse and expand all past matches
-- 💾 **Offline Support** — Data persisted in localStorage via Zustand
+- 💾 **Database-backed** — All data stored via REST API (Express + Supabase/PostgreSQL)
 - 📱 **Mobile First** — Responsive design optimized for phones
 
 ## Call Break Scoring Rules
@@ -19,6 +19,15 @@ A modern, offline-friendly scoreboard app for Call Break card games. Built with 
 - Each round has exactly 13 tricks total
 
 ## Setup
+
+1. Start the backend (see `../backend/README.md`) and run DB migrations.
+2. Configure the API URL:
+
+```bash
+cp .env.example .env
+```
+
+3. Install and run:
 
 ```bash
 npm install

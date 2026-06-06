@@ -61,14 +61,14 @@ export default function Analytics() {
 
   return (
     <div className="page-container">
-      <div className="max-w-lg mx-auto px-4 pt-6">
+      <div className="w-full max-w-6xl mx-auto px-6 lg:px-8 pt-6">
         <div className="mb-8 animate-fade-in">
           <h1 className="font-display text-3xl font-bold text-white">Analytics</h1>
           <p className="text-white/40 text-sm mt-1">Performance insights</p>
         </div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-2 gap-3 mb-8 animate-slide-up">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 animate-slide-up">
           <StatCard icon={<Trophy size={18} />} label="Matches" value={matches.length} sub={`${completedMatches.length} completed`} />
           <StatCard icon={<Zap size={18} />} label="Players" value={players.length} sub="registered" />
         </div>

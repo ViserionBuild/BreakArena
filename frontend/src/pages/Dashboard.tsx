@@ -1,5 +1,6 @@
 import { Trophy, Play, TrendingUp, Users, Zap, ChevronRight, Star } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { formatMatchLabel } from '../utils';
 import PlayerAvatar from '../components/ui/PlayerAvatar';
 import BgSuits from '../components/ui/BgSuits';
 
@@ -9,11 +10,10 @@ export default function Dashboard() {
   const completedMatches = matches.filter((m) => m.status === 'completed');
   const sortedPlayers = [...players].sort((a, b) => b.stats.wins - a.stats.wins);
   const recentMatches = matches.slice(0, 3);
-
   return (
     <div className="page-container relative">
       <BgSuits />
-      <div className="relative z-10 max-w-lg mx-auto px-4 pt-6">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8 pt-6">
         
         {/* Header */}
         <div className="mb-8 animate-fade-in">
@@ -46,7 +46,7 @@ export default function Dashboard() {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <button
             onClick={() => setPage('matchSetup')}
             className="btn-primary rounded-2xl py-4 flex flex-col items-center gap-2"
@@ -64,7 +64,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           {[
             { label: 'Matches', value: matches.length, icon: <Trophy size={16} />, color: 'gold' },
             { label: 'Players', value: players.length, icon: <Users size={16} />, color: 'violet' },
@@ -126,6 +126,9 @@ export default function Dashboard() {
                 <Zap size={16} className="text-gold-400" />
                 <h2 className="font-display text-lg font-semibold text-white">Recent Matches</h2>
               </div>
+              <button onClick={() => setPage('history')} className="text-xs text-gold-400/70 hover:text-gold-400 transition-colors">
+                View all →
+              </button>
             </div>
             <div className="space-y-3">
               {recentMatches.map((match) => {
@@ -144,7 +147,10 @@ export default function Dashboard() {
                       ))}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white/60">{match.rounds.length} rounds</div>
+                      <div className="text-xs text-white/40">
+                        Date: {formatMatchLabel(matches, match.createdAt, match.matchDate, match.matchNumber)}
+                      </div>
+                      <div className="text-sm text-white/60">{match.totalRounds ?? match.rounds.length} rounds</div>
                       {winner && <div className="text-xs text-gold-400">{winner.name} won</div>}
                     </div>
                     <div className={`text-xs px-2 py-1 rounded-full ${match.status === 'active' ? 'bg-jade-400/20 text-jade-400' : 'bg-white/5 text-white/40'}`}>

@@ -6,15 +6,23 @@ const { calculateRankings, buildScoreHistory } = require('../utils/scoring');
  * Used to power the frontend graphs.
  */
 const getMatchAnalytics = async (matchId) => {
-  // Fetch all match players
-  const { data: matchPlayers, error: mpError } = await supabase
-    .from('match_players')
-    .select('user_id, seat_order, users(id, name, avatar)')
-    .eq('match_id', matchId)
-    .order('seat_order');
+  // Fetch match row to get the 4 players (stored as p1_id..p4_id)
+  const { data: matchRow, error: mError } = await supabase
+    .from('matches')
+    .select('p1_id, p2_id, p3_id, p4_id, p1:p1_id(id,name,avatar), p2:p2_id(id,name,avatar), p3:p3_id(id,name,avatar), p4:p4_id(id,name,avatar)')
+    .eq('id', matchId)
+    .single();
 
-  if (mpError) throw mpError;
-  const playerIds = matchPlayers.map((mp) => mp.user_id);
+  if (mError) throw mError;
+
+  const matchPlayers = [
+    { seat_order: 1, user_id: matchRow.p1_id, users: matchRow.p1 },
+    { seat_order: 2, user_id: matchRow.p2_id, users: matchRow.p2 },
+    { seat_order: 3, user_id: matchRow.p3_id, users: matchRow.p3 },
+    { seat_order: 4, user_id: matchRow.p4_id, users: matchRow.p4 },
+  ].filter((p) => p.user_id);
+
+  const playerIds = matchPlayers.map((p) => p.user_id);
 
   // Fetch all round scores joined to round numbers
   const { data: roundScores, error: rsError } = await supabase
@@ -86,28 +94,29 @@ const getGlobalLeaderboard = async () => {
     .select(
       `
       id, name, avatar,
-      match_players (
-        match_id,
-        matches ( status, winner_id )
-      ),
-      round_scores ( score )
+      round_scores ( score, rounds ( match_id, matches ( status, winner_id ) ) )
     `
     );
 
   if (error) throw error;
 
   const leaderboard = data.map((player) => {
-    const completedMatches = player.match_players.filter(
-      (mp) => mp.matches?.status === 'completed'
-    );
-    const wins = completedMatches.filter(
-      (mp) => mp.matches?.winner_id === player.id
-    ).length;
+    // Collect unique matches this player participated in via their round scores
+    const matchMap = {};
+    player.round_scores.forEach((rs) => {
+      const m = rs.rounds?.matches;
+      const mid = rs.rounds?.match_id;
+      if (mid && m) matchMap[mid] = m;
+    });
+
+    const allMatches = Object.values(matchMap);
+    const completedMatches = allMatches.filter((m) => m.status === 'completed');
+    const wins = completedMatches.filter((m) => m.winner_id === player.id).length;
     const totalScore = player.round_scores.reduce(
       (sum, rs) => sum + (rs.score ?? 0),
       0
     );
-    const totalMatches = player.match_players.length;
+    const totalMatches = allMatches.length;
 
     return {
       player_id: player.id,

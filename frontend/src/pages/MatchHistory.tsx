@@ -1,22 +1,35 @@
-import { Trash2, Trophy, Calendar, Clock, ChevronRight } from 'lucide-react';
+import { useEffect } from 'react';
+import { ArrowLeft, Trash2, Trophy, Calendar, Clock, ChevronRight, Play } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import PlayerAvatar from '../components/ui/PlayerAvatar';
-import { useState } from 'react';
 import { Match } from '../types';
-import ScoreGraph from '../components/graphs/ScoreGraph';
+import { formatMatchLabel } from '../utils';
+import RoundScoreTable from '../components/scoreboard/RoundScoreTable';
+import MatchRankingTable from '../components/scoreboard/MatchRankingTable';
 
 export default function MatchHistory() {
-  const { matches, players, deleteMatch, setPage, activeMatchId } = useAppStore();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const {
+    matches,
+    players,
+    deleteMatch,
+    resumeMatch,
+    setPage,
+    activeMatchId,
+    isSaving,
+    selectedHistoryMatchId,
+    setSelectedHistoryMatchId,
+    fetchMatch,
+  } = useAppStore();
+
+  useEffect(() => {
+    if (selectedHistoryMatchId) {
+      fetchMatch(selectedHistoryMatchId);
+    }
+  }, [selectedHistoryMatchId, fetchMatch]);
 
   const sortedMatches = [...matches].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
-
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
 
   const getDuration = (match: Match) => {
     if (!match.endedAt) return null;
@@ -25,6 +38,8 @@ export default function MatchHistory() {
     if (mins < 60) return `${mins}m`;
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   };
+
+  const selectedMatch = selectedHistoryMatchId ? matches.find((match) => match.id === selectedHistoryMatchId) : null;
 
   if (sortedMatches.length === 0) {
     return (
@@ -41,9 +56,100 @@ export default function MatchHistory() {
     );
   }
 
+  if (selectedMatch) {
+    const winner = selectedMatch.winnerId ? players.find((p) => p.id === selectedMatch.winnerId) : null;
+    const duration = getDuration(selectedMatch);
+
+    return (
+      <div className="page-container">
+        <div className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/85 backdrop-blur-xl">
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <button
+              onClick={() => setSelectedHistoryMatchId(null)}
+              className="h-10 px-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center gap-2 text-white/70 hover:text-white transition-all"
+            >
+              <ArrowLeft size={18} />
+              <span className="text-sm font-medium">History</span>
+            </button>
+            <div className="flex items-center gap-2">
+              {selectedMatch.status === 'active' && selectedMatch.id === activeMatchId && (
+                <button onClick={() => setPage('liveMatch')} className="btn-primary rounded-xl px-4 py-2 text-sm">
+                  Continue
+                </button>
+              )}
+              {selectedMatch.status === 'completed' && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await resumeMatch(selectedMatch.id);
+                    } catch {
+                      // Error surfaced via global store banner
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="btn-primary rounded-xl px-4 py-2 text-sm inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Play size={14} />
+                  Resume Match
+                </button>
+              )}
+              <button
+                onClick={async () => {
+                  try {
+                    await deleteMatch(selectedMatch.id);
+                    setSelectedHistoryMatchId(null);
+                  } catch {
+                    // Error surfaced via global store banner
+                  }
+                }}
+                className="w-10 h-10 rounded-xl bg-crimson-500/10 hover:bg-crimson-500/20 flex items-center justify-center text-crimson-400 transition-all"
+                title="Delete match"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-[1400px] mx-auto px-6 lg:px-8 pt-6">
+          <div className="mb-4 animate-fade-in">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                selectedMatch.status === 'active' ? 'bg-jade-400/20 text-jade-400' : 'bg-white/10 text-white/40'
+              }`}>
+                {selectedMatch.status === 'active' ? 'Live' : 'Done'}
+              </div>
+              <span className="text-xs text-white/30 font-mono">{selectedMatch.rounds.length} rounds</span>
+              {duration && (
+                <div className="flex items-center gap-1 text-xs text-white/30">
+                  <Clock size={10} />
+                  {duration}
+                </div>
+              )}
+            </div>
+            <h1 className="font-display text-2xl font-bold text-white">
+              Match {formatMatchLabel(matches, selectedMatch.createdAt, selectedMatch.matchDate, selectedMatch.matchNumber)}
+            </h1>
+            {winner && (
+              <div className="text-sm text-gold-400 mt-1">Winner: {winner.name}</div>
+            )}
+          </div>
+
+          <div className="match-detail-grid">
+            <RoundScoreTable match={selectedMatch} players={players} readOnly />
+            <aside className="match-side-panel">
+              <MatchRankingTable match={selectedMatch} players={players} />
+            </aside>
+          </div>
+          <div className="h-8" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
-      <div className="max-w-lg mx-auto px-4 pt-6">
+      <div className="w-full max-w-5xl mx-auto px-6 lg:px-8 pt-6">
         <div className="mb-8 animate-fade-in">
           <h1 className="font-display text-3xl font-bold text-white">History</h1>
           <p className="text-white/40 text-sm mt-1">{matches.length} matches played</p>
@@ -59,7 +165,6 @@ export default function MatchHistory() {
                 player: players.find((p) => p.id === mp.playerId),
               }));
             const duration = getDuration(match);
-            const isExpanded = expandedId === match.id;
 
             return (
               <div
@@ -70,7 +175,7 @@ export default function MatchHistory() {
                 {/* Match header */}
                 <button
                   className="w-full p-4 flex items-center gap-4 text-left hover:bg-white/2 transition-colors"
-                  onClick={() => setExpandedId(isExpanded ? null : match.id)}
+                  onClick={() => setSelectedHistoryMatchId(match.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -102,7 +207,7 @@ export default function MatchHistory() {
 
                     <div className="flex items-center gap-1 text-xs text-white/30">
                       <Calendar size={10} />
-                      {formatDate(match.createdAt)}
+                      Date: {formatMatchLabel(matches, match.createdAt, match.matchDate, match.matchNumber)}
                     </div>
                   </div>
 
@@ -113,52 +218,9 @@ export default function MatchHistory() {
                         <div className="text-sm font-semibold text-gold-400">{winner.name}</div>
                       </div>
                     )}
-                    <ChevronRight size={16} className={`text-white/30 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={16} className="text-white/30" />
                   </div>
                 </button>
-
-                {/* Expanded content */}
-                {isExpanded && (
-                  <div className="border-t border-white/5 p-4 animate-fade-in">
-                    {/* Scoreboard */}
-                    <div className="space-y-2 mb-4">
-                      {matchPlayers.map(({ playerId, player, totalScore, rank }) => player && (
-                        <div key={playerId} className="flex items-center gap-3">
-                          <span className={`rank-badge rank-${rank}`}>{rank}</span>
-                          <PlayerAvatar avatar={player.avatar} color={player.color} name={player.name} size="sm" />
-                          <span className="flex-1 text-white text-sm">{player.name}</span>
-                          <span className={`font-mono font-bold text-sm ${totalScore > 0 ? 'text-jade-400' : 'text-crimson-400'}`}>
-                            {totalScore > 0 ? '+' : ''}{totalScore.toFixed(1)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Graph */}
-                    {match.rounds.length > 1 && (
-                      <div className="mb-4">
-                        <div className="text-xs text-white/30 uppercase tracking-wider mb-2">Score Progression</div>
-                        <ScoreGraph match={match} players={players} />
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      {match.status === 'active' && match.id === activeMatchId && (
-                        <button onClick={() => setPage('liveMatch')} className="btn-primary flex-1 rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
-                          Continue Match
-                        </button>
-                      )}
-                      <button
-                        onClick={() => deleteMatch(match.id)}
-                        className="btn-danger rounded-xl py-2.5 px-4 flex items-center gap-2 text-sm"
-                      >
-                        <Trash2 size={14} />
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}

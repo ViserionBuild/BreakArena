@@ -42,14 +42,17 @@ app.use(
 );
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
+const isProduction = process.env.NODE_ENV === 'production';
 const limiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  max: Number(process.env.RATE_LIMIT_MAX) || (isProduction ? 100 : 1000),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
-app.use(limiter);
+if (isProduction) {
+  app.use(limiter);
+}
 
 // ── Body parsing & logging ────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));

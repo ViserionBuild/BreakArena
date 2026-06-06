@@ -1,197 +1,362 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Player, Match, Round, RoundScore, Page } from '../types';
-import { generateId, PLAYER_COLORS, computeRankings, calculateCallBreakScore } from '../utils';
+import { matchesApi, playersApi, roundsApi } from '../api';
+import { isPlaceholderRoundId } from '../api/mappers';
+import { ApiError } from '../api/client';
+import { Player, Match, Page } from '../types';
 
 interface AppState {
-  // Navigation
   currentPage: Page;
   setPage: (page: Page) => void;
+  selectedHistoryMatchId: string | null;
+  setSelectedHistoryMatchId: (matchId: string | null) => void;
 
-  // Players
+  isLoading: boolean;
+  isSaving: boolean;
+  error: string | null;
+  clearError: () => void;
+
   players: Player[];
-  addPlayer: (name: string, avatar: string) => void;
-  updatePlayer: (id: string, name: string, avatar: string) => void;
-  deletePlayer: (id: string) => void;
-
-  // Matches
   matches: Match[];
   activeMatchId: string | null;
-  createMatch: (playerIds: string[], totalRounds?: number) => string;
-  addRound: (matchId: string, scores: RoundScore[]) => void;
-  undoLastRound: (matchId: string) => void;
-  endMatch: (matchId: string) => void;
-  deleteMatch: (matchId: string) => void;
-  
-  // Getters
+
+  initialize: () => Promise<void>;
+  refreshPlayers: () => Promise<void>;
+  refreshMatches: () => Promise<void>;
+  fetchMatch: (matchId: string) => Promise<Match | null>;
+
+  addPlayer: (name: string, avatar: string) => Promise<void>;
+  updatePlayer: (id: string, name: string, avatar: string) => Promise<void>;
+  deletePlayer: (id: string) => Promise<void>;
+
+  createMatch: (playerIds: string[], totalRounds?: number) => Promise<string>;
+  initializeMatchRounds: (matchId: string) => Promise<void>;
+  updateRoundScore: (
+    matchId: string,
+    roundId: string,
+    playerId: string,
+    bid: number,
+    actualWins: number
+  ) => Promise<void>;
+  undoLastRound: (matchId: string) => Promise<void>;
+  redoLastRound: (matchId: string) => Promise<void>;
+  deleteRound: (matchId: string, roundId: string) => Promise<void>;
+  increaseMatchRounds: (matchId: string) => Promise<void>;
+  endMatch: (matchId: string) => Promise<void>;
+  resumeMatch: (matchId: string) => Promise<void>;
+  deleteMatch: (matchId: string) => Promise<void>;
+
   getActiveMatch: () => Match | null;
   getPlayer: (id: string) => Player | undefined;
 }
 
-const defaultPlayers: Player[] = [
-  { id: '1', name: 'North', avatar: '♠️', color: PLAYER_COLORS[0], createdAt: new Date().toISOString(), stats: { totalMatches: 3, wins: 2, totalScore: 245, averageScore: 81.7, winRate: 66.7 } },
-  { id: '2', name: 'East', avatar: '♥️', color: PLAYER_COLORS[1], createdAt: new Date().toISOString(), stats: { totalMatches: 3, wins: 1, totalScore: 198, averageScore: 66, winRate: 33.3 } },
-  { id: '3', name: 'South', avatar: '♦️', color: PLAYER_COLORS[2], createdAt: new Date().toISOString(), stats: { totalMatches: 3, wins: 0, totalScore: 155, averageScore: 51.7, winRate: 0 } },
-  { id: '4', name: 'West', avatar: '♣️', color: PLAYER_COLORS[3], createdAt: new Date().toISOString(), stats: { totalMatches: 3, wins: 0, totalScore: 132, averageScore: 44, winRate: 0 } },
-];
+const mergeMatch = (matches: Match[], match: Match): Match[] => {
+  const exists = matches.some((entry) => entry.id === match.id);
+  if (!exists) return [match, ...matches];
+  return matches.map((entry) => (entry.id === match.id ? match : entry));
+};
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof ApiError ? error.message : 'Something went wrong. Please try again.';
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       currentPage: 'dashboard',
       setPage: (page) => set({ currentPage: page }),
+      selectedHistoryMatchId: null,
+      setSelectedHistoryMatchId: (matchId) => set({ selectedHistoryMatchId: matchId }),
 
-      players: defaultPlayers,
+      isLoading: false,
+      isSaving: false,
+      error: null,
+      clearError: () => set({ error: null }),
 
-      addPlayer: (name, avatar) => {
-        const id = generateId();
-        const color = PLAYER_COLORS[get().players.length % PLAYER_COLORS.length];
-        const player: Player = {
-          id,
-          name,
-          avatar,
-          color,
-          createdAt: new Date().toISOString(),
-          stats: { totalMatches: 0, wins: 0, totalScore: 0, averageScore: 0, winRate: 0 },
-        };
-        set((s) => ({ players: [...s.players, player] }));
-      },
-
-      updatePlayer: (id, name, avatar) => {
-        set((s) => ({
-          players: s.players.map((p) => (p.id === id ? { ...p, name, avatar } : p)),
-        }));
-      },
-
-      deletePlayer: (id) => {
-        set((s) => ({ players: s.players.filter((p) => p.id !== id) }));
-      },
-
+      players: [],
       matches: [],
       activeMatchId: null,
 
-      createMatch: (playerIds, totalRounds = 10) => {
-        const id = generateId();
-        const match: Match = {
-          id,
-          players: playerIds.map((playerId, i) => ({
-            playerId,
-            seatOrder: i,
-            totalScore: 0,
-            rank: i + 1,
-          })),
-          rounds: [],
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          totalRounds,
-        };
-        set((s) => ({ matches: [match, ...s.matches], activeMatchId: id }));
-        return id;
-      },
-
-      addRound: (matchId, scores) => {
-        set((s) => {
-          const matches = s.matches.map((m) => {
-            if (m.id !== matchId) return m;
-
-            const round: Round = {
-              id: generateId(),
-              roundNumber: m.rounds.length + 1,
-              scores,
-            };
-
-            // Update totals
-            const updatedPlayers = m.players.map((mp) => {
-              const rs = scores.find((sc) => sc.playerId === mp.playerId);
-              const roundScore = rs ? calculateCallBreakScore(rs.bid, rs.actualWins) : 0;
-              return { ...mp, totalScore: mp.totalScore + roundScore };
-            });
-
-            // Compute rankings
-            const rankings = computeRankings(updatedPlayers);
-            const finalPlayers = updatedPlayers.map((mp) => {
-              const newRank = rankings.find((r) => r.playerId === mp.playerId)?.rank || mp.rank;
-              return { ...mp, prevRank: mp.rank, rank: newRank };
-            });
-
-            return { ...m, rounds: [...m.rounds, round], players: finalPlayers };
+      initialize: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const [players, matches] = await Promise.all([
+            playersApi.list(),
+            matchesApi.list({ limit: 100 }),
+          ]);
+          const activeMatch = matches.find((match) => match.status === 'active');
+          set({
+            players,
+            matches,
+            activeMatchId: activeMatch?.id ?? null,
+            isLoading: false,
           });
-          return { matches };
-        });
+        } catch (error) {
+          set({ isLoading: false, error: getErrorMessage(error) });
+        }
       },
 
-      undoLastRound: (matchId) => {
-        set((s) => {
-          const matches = s.matches.map((m) => {
-            if (m.id !== matchId || m.rounds.length === 0) return m;
-            const lastRound = m.rounds[m.rounds.length - 1];
-            const updatedPlayers = m.players.map((mp) => {
-              const rs = lastRound.scores.find((sc) => sc.playerId === mp.playerId);
-              const roundScore = rs ? calculateCallBreakScore(rs.bid, rs.actualWins) : 0;
-              return { ...mp, totalScore: mp.totalScore - roundScore };
-            });
-            const rankings = computeRankings(updatedPlayers);
-            const finalPlayers = updatedPlayers.map((mp) => ({
-              ...mp,
-              rank: rankings.find((r) => r.playerId === mp.playerId)?.rank || mp.rank,
-            }));
-            return { ...m, rounds: m.rounds.slice(0, -1), players: finalPlayers };
+      refreshPlayers: async () => {
+        try {
+          const players = await playersApi.list();
+          set({ players, error: null });
+        } catch (error) {
+          set({ error: getErrorMessage(error) });
+        }
+      },
+
+      refreshMatches: async () => {
+        try {
+          const matches = await matchesApi.list({ limit: 100 });
+          const activeMatch = matches.find((match) => match.status === 'active');
+          set({
+            matches,
+            activeMatchId: activeMatch?.id ?? get().activeMatchId,
+            error: null,
           });
-          return { matches };
-        });
+        } catch (error) {
+          set({ error: getErrorMessage(error) });
+        }
       },
 
-      endMatch: (matchId) => {
-        set((s) => {
-          const match = s.matches.find((m) => m.id === matchId);
-          if (!match) return {};
-          const winner = [...match.players].sort((a, b) => b.totalScore - a.totalScore)[0];
-          
-          // Update player stats
-          const updatedPlayers = s.players.map((p) => {
-            const mp = match.players.find((mp) => mp.playerId === p.id);
-            if (!mp) return p;
-            const isWinner = mp.playerId === winner.playerId;
-            const totalMatches = p.stats.totalMatches + 1;
-            const wins = p.stats.wins + (isWinner ? 1 : 0);
-            const totalScore = p.stats.totalScore + mp.totalScore;
-            return {
-              ...p,
-              stats: {
-                totalMatches,
-                wins,
-                totalScore,
-                averageScore: Math.round((totalScore / totalMatches) * 10) / 10,
-                winRate: Math.round((wins / totalMatches) * 1000) / 10,
-              },
-            };
-          });
-
-          const matches = s.matches.map((m) =>
-            m.id === matchId
-              ? { ...m, status: 'completed' as const, winnerId: winner.playerId, endedAt: new Date().toISOString() }
-              : m
-          );
-          return { matches, players: updatedPlayers, activeMatchId: null };
-        });
+      fetchMatch: async (matchId) => {
+        try {
+          const match = await matchesApi.get(matchId);
+          set((state) => ({
+            matches: mergeMatch(state.matches, match),
+            error: null,
+          }));
+          return match;
+        } catch (error) {
+          set({ error: getErrorMessage(error) });
+          return null;
+        }
       },
 
-      deleteMatch: (matchId) => {
-        set((s) => ({
-          matches: s.matches.filter((m) => m.id !== matchId),
-          activeMatchId: s.activeMatchId === matchId ? null : s.activeMatchId,
+      addPlayer: async (name, avatar) => {
+        set({ isSaving: true, error: null });
+        try {
+          const player = await playersApi.create(name, avatar);
+          set((state) => ({
+            players: [...state.players, player].sort((a, b) => a.name.localeCompare(b.name)),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      updatePlayer: async (id, name, avatar) => {
+        set({ isSaving: true, error: null });
+        try {
+          const player = await playersApi.update(id, name, avatar);
+          set((state) => ({
+            players: state.players
+              .map((entry) => (entry.id === id ? player : entry))
+              .sort((a, b) => a.name.localeCompare(b.name)),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      deletePlayer: async (id) => {
+        set({ isSaving: true, error: null });
+        try {
+          await playersApi.delete(id);
+          set((state) => ({
+            players: state.players.filter((player) => player.id !== id),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      createMatch: async (playerIds, totalRounds = 10) => {
+        set({ isSaving: true, error: null });
+        try {
+          const match = await matchesApi.create(playerIds, totalRounds);
+          set((state) => ({
+            matches: [match, ...state.matches.filter((entry) => entry.id !== match.id)],
+            activeMatchId: match.id,
+            selectedHistoryMatchId: null,
+            isSaving: false,
+          }));
+          return match.id;
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      initializeMatchRounds: async (matchId: string) => {
+        await get().fetchMatch(matchId);
+      },
+
+      updateRoundScore: async (matchId, roundId, playerId, bid, actualWins) => {
+        const match = get().matches.find((entry) => entry.id === matchId);
+        if (!match) return;
+
+        const round = match.rounds.find((entry) => entry.id === roundId);
+        if (!round) return;
+
+        const playerScores = round.scores.map((score) => ({
+          user_id: score.playerId,
+          bid: score.playerId === playerId ? bid : score.bid,
+          actual_wins: score.playerId === playerId ? actualWins : score.actualWins,
         }));
+
+        set({ isSaving: true, error: null });
+        try {
+          const updatedMatch = await roundsApi.saveRoundScores(match, roundId, playerScores);
+          set((state) => ({
+            matches: mergeMatch(state.matches, updatedMatch),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      undoLastRound: async (matchId) => {
+        const match = get().matches.find((entry) => entry.id === matchId);
+        if (!match || match.rounds.length === 0) return;
+
+        const lastRoundIndex = [...match.rounds]
+          .reverse()
+          .findIndex((round) => round.scores.some((score) => score.bid !== 0 || score.actualWins !== 0));
+
+        if (lastRoundIndex === -1) return;
+
+        const targetRound = match.rounds[match.rounds.length - 1 - lastRoundIndex];
+        const playerScores = targetRound.scores.map((score) => ({
+          user_id: score.playerId,
+          bid: 0,
+          actual_wins: 0,
+        }));
+
+        set({ isSaving: true, error: null });
+        try {
+          if (isPlaceholderRoundId(targetRound.id)) {
+            await roundsApi.saveRoundScores(match, targetRound.id, playerScores);
+          } else {
+            await roundsApi.updateRound(targetRound.id, playerScores);
+          }
+          await get().fetchMatch(matchId);
+          set({ isSaving: false });
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      redoLastRound: async (_matchId) => {
+        // Not implemented on backend yet
+      },
+
+      deleteRound: async (_matchId, roundId) => {
+        if (isPlaceholderRoundId(roundId)) return;
+
+        set({ isSaving: true, error: null });
+        try {
+          const match = await roundsApi.deleteRound(roundId);
+          set((state) => ({
+            matches: mergeMatch(state.matches, match),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      increaseMatchRounds: async (matchId) => {
+        const match = get().matches.find((entry) => entry.id === matchId);
+        if (!match?.totalRounds) return;
+
+        set({ isSaving: true, error: null });
+        try {
+          const updatedMatch = await matchesApi.updateTotalRounds(matchId, match.totalRounds + 1);
+          set((state) => ({
+            matches: mergeMatch(state.matches, updatedMatch),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      endMatch: async (matchId) => {
+        set({ isSaving: true, error: null });
+        try {
+          const match = await matchesApi.complete(matchId);
+          const players = await playersApi.list();
+          set((state) => ({
+            matches: mergeMatch(state.matches, match),
+            players,
+            activeMatchId: state.activeMatchId === matchId ? null : state.activeMatchId,
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      resumeMatch: async (matchId) => {
+        set({ isSaving: true, error: null });
+        try {
+          await matchesApi.resume(matchId);
+          const matches = await matchesApi.list({ limit: 100 });
+          set({
+            matches,
+            activeMatchId: matchId,
+            selectedHistoryMatchId: null,
+            currentPage: 'liveMatch',
+            isSaving: false,
+          });
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      deleteMatch: async (matchId) => {
+        set({ isSaving: true, error: null });
+        try {
+          await matchesApi.delete(matchId);
+          set((state) => ({
+            matches: state.matches.filter((match) => match.id !== matchId),
+            activeMatchId: state.activeMatchId === matchId ? null : state.activeMatchId,
+            selectedHistoryMatchId:
+              state.selectedHistoryMatchId === matchId ? null : state.selectedHistoryMatchId,
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
       },
 
       getActiveMatch: () => {
         const { matches, activeMatchId } = get();
-        return matches.find((m) => m.id === activeMatchId) || null;
+        return matches.find((match) => match.id === activeMatchId) || null;
       },
 
-      getPlayer: (id) => get().players.find((p) => p.id === id),
+      getPlayer: (id) => get().players.find((player) => player.id === id),
     }),
     {
-      name: 'callbreak-storage',
+      name: 'callbreak-ui',
+      partialize: (state) => ({
+        currentPage: state.currentPage,
+        selectedHistoryMatchId: state.selectedHistoryMatchId,
+      }),
     }
   )
 );
