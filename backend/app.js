@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 
 const errorHandler = require('./middleware/errorHandler');
 const { getIndianTimestamp } = require('./utils/indianTime');
+const supabase = require('./database/supabase');
 
 // Routes
 const playerRoutes = require('./routes/players');
@@ -65,6 +66,22 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: getIndianTimestamp() });
+});
+
+app.get('/health/ping_db', async (req, res) => {
+  try {
+    // lightweight query
+    const { error } = await supabase
+      .from('groups')
+      .select('id')
+      .limit(1);
+
+    if (error) throw error;
+
+    res.json({ status: 'db_ok', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ status: 'db_error', error: err.message });
+  }
 });
 
 // ── API routes ────────────────────────────────────────────────────────────────
