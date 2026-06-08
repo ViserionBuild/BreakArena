@@ -22,7 +22,7 @@ jobs:
         run: |
           curl -fsSL \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            https://breakarena-backend.onrender.com/api/v1/health/ping_db
+            https://breakarena-backend.onrender.com/health/ping_db
 
       - name: Ping Frontend
         run: |
