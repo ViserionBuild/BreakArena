@@ -28,8 +28,8 @@ export default function RoundScoreTable({
       const player = players.find((p) => p.id === mp.playerId);
       return player ? { ...mp, player } : null;
     })
-    .filter(Boolean)
-    .sort((a, b) => a.seatOrder - b.seatOrder) as Array<(typeof match.players)[0] & { player: Player }>;
+    .filter((mp): mp is (typeof match.players)[0] & { player: Player } => Boolean(mp))
+    .sort((a, b) => a.seatOrder - b.seatOrder);
 
   const getRoundStarter = (roundNumber: number) =>
     matchPlayers.length > 0 ? matchPlayers[(roundNumber - 1) % matchPlayers.length] : null;
@@ -184,6 +184,23 @@ export default function RoundScoreTable({
                 const rs = round.scores.find((s) => s.playerId === mp.playerId);
                 return sum + getBid(round.id, mp.playerId, rs?.bid ?? 0);
               }, 0);
+              const actualEntries = matchPlayers
+                .map((mp) => {
+                  const rs = round.scores.find((s) => s.playerId === mp.playerId);
+                  if (!rs) return null;
+                  const key = cellKey(round.id, mp.playerId);
+                  const draft = actualWinsDrafts[key];
+                  const hasValue = draft !== undefined ? draft !== '' && draft !== '-' : rs.actualWins !== 0;
+                  return {
+                    playerId: mp.playerId,
+                    actualWins: getActualWins(round.id, mp.playerId, rs.actualWins),
+                    hasValue,
+                  };
+                })
+                .filter((entry): entry is { playerId: string; actualWins: number; hasValue: boolean } => Boolean(entry));
+              const enteredActuals = actualEntries.filter((entry) => entry.hasValue);
+              const maxActualWins =
+                enteredActuals.length > 0 ? Math.max(...enteredActuals.map((entry) => entry.actualWins)) : null;
               return (
                 <tr key={round.id}>
                   <td className="round-col text-white/50 font-mono text-xs">
@@ -209,9 +226,15 @@ export default function RoundScoreTable({
                     const bidKey = cellKey(round.id, mp.playerId);
                     const bidValue =
                       bidDrafts[bidKey] ??
-                      (rs.bid === 0 && !readOnly && bidDrafts[bidKey] === undefined ? '' : String(rs.bid));
+                      (rs.bid === 0 && bidDrafts[bidKey] === undefined ? '' : String(rs.bid));
                     const currentBid = getBid(round.id, mp.playerId, rs.bid);
-                    const actualValue = actualWinsDrafts[bidKey] ?? (rs.actualWins === 0 && !readOnly ? '' : String(rs.actualWins));
+                    const actualValue = actualWinsDrafts[bidKey] ?? (rs.actualWins === 0 ? '' : String(rs.actualWins));
+                    const currentActualWins = getActualWins(round.id, mp.playerId, rs.actualWins);
+                    const isMaxActualWins =
+                      maxActualWins !== null &&
+                      actualEntries.some(
+                        (entry) => entry.playerId === mp.playerId && entry.hasValue && entry.actualWins === maxActualWins
+                      );
                     return (
                       <td key={mp.playerId}>
                         <div className="cell-editor">
@@ -243,17 +266,18 @@ export default function RoundScoreTable({
                               onKeyDown={(event) => {
                                 if (event.key === 'Enter') handleActualWinsCommit(round.id, mp.playerId, currentBid);
                               }}
-                              className={`cell-input ${getActualClass(
-                                Number(actualWinsDrafts[bidKey] ?? rs.actualWins),
-                                currentBid
-                              )}`}
+                              className={`cell-input ${getActualClass(currentActualWins, currentBid)} ${
+                                isMaxActualWins ? 'max-actual' : ''
+                              }`}
                             />
                           </div>
                         </div>
                       </td>
                     );
                   })}
-                  <td className="round-col font-mono text-xs text-white/60">{predictedTotal}</td>
+                  <td className="round-col font-mono text-xs text-white/60">
+                    {readOnly && predictedTotal === 0 ? '' : predictedTotal}
+                  </td>
                 </tr>
               );
             })}

@@ -6,9 +6,10 @@ import BgSuits from '../components/ui/BgSuits';
 
 export default function Dashboard() {
   const { players, matches, setPage, activeMatchId } = useAppStore();
+  const activePlayers = players.filter((p) => p.isActive !== false);
   
   const completedMatches = matches.filter((m) => m.status === 'completed');
-  const sortedPlayers = [...players].sort((a, b) => b.stats.wins - a.stats.wins);
+  const sortedPlayers = [...activePlayers].sort((a, b) => b.stats.wins - a.stats.wins);
   const recentMatches = matches.slice(0, 3);
   return (
     <div className="page-container relative">
@@ -67,7 +68,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           {[
             { label: 'Matches', value: matches.length, icon: <Trophy size={16} />, color: 'gold' },
-            { label: 'Players', value: players.length, icon: <Users size={16} />, color: 'violet' },
+            { label: 'Players', value: activePlayers.length, icon: <Users size={16} />, color: 'violet' },
             { label: 'Completed', value: completedMatches.length, icon: <Star size={16} />, color: 'jade' },
           ].map(({ label, value, icon, color }, i) => (
             <div

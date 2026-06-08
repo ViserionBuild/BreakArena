@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Undo2, Flag, Redo2, Plus } from 'lucide-react';
+import { Undo2, Flag, Redo2, Plus, Minus } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { MAX_MATCH_ROUNDS } from '../utils';
 import RoundScoreTable from '../components/scoreboard/RoundScoreTable';
@@ -17,6 +17,7 @@ export default function LiveMatch() {
     redoLastRound,
     endMatch,
     increaseMatchRounds,
+    reduceMatchRounds,
     setPage,
     matches,
     fetchMatch,
@@ -24,7 +25,7 @@ export default function LiveMatch() {
   } = useAppStore();
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
-  const match = getActiveMatch() || matches.find((m) => m.status === 'active') || null;
+  const match = getActiveMatch() || matches.find((m) => m.status === 'active' || m.status === 'paused') || null;
 
   useEffect(() => {
     if (match?.id) {
@@ -47,15 +48,31 @@ export default function LiveMatch() {
     );
   }
 
+  const isRoundCompleted = (round: (typeof match.rounds)[number]) =>
+    round.scores.length === 4 && round.scores.every((score) => score.actualWins !== 0);
+
   const completedRounds = match.totalRounds
-    ? match.rounds.filter((round) => round.scores.reduce((sum, score) => sum + score.actualWins, 0) === 13).length
+    ? match.rounds.filter(isRoundCompleted).length
     : match.rounds.length;
   const progress = match.totalRounds ? (completedRounds / match.totalRounds) * 100 : 0;
   const atMaxRounds = (match.totalRounds ?? 0) >= MAX_MATCH_ROUNDS;
+  const atMinRounds = (match.totalRounds ?? 0) <= 1;
 
   const handleAddRound = async () => {
     try {
       await increaseMatchRounds(match.id);
+    } catch {
+      // Error surfaced via global store banner
+    }
+  };
+
+  const handleReduceRound = async () => {
+    const lastRound = match.rounds[match.rounds.length - 1];
+    const hasScores = lastRound?.scores.some((score) => score.bid !== 0 || score.actualWins !== 0);
+    if (hasScores && !window.confirm(`Delete round ${lastRound.roundNumber}? This cannot be undone.`)) return;
+
+    try {
+      await reduceMatchRounds(match.id);
     } catch {
       // Error surfaced via global store banner
     }
@@ -88,15 +105,26 @@ export default function LiveMatch() {
             <div className="flex items-center gap-2 text-xs text-white/40 mt-1">
               <span>Rounds completed: {completedRounds}/{match.totalRounds || '∞'}</span>
               {match.totalRounds && (
-                <button
-                  onClick={handleAddRound}
-                  disabled={isSaving || atMaxRounds}
-                  className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                  title={atMaxRounds ? `Maximum ${MAX_MATCH_ROUNDS} rounds` : 'Add round'}
-                >
-                  <Plus size={12} />
-                  <span>Add round</span>
-                </button>
+                <div className="inline-flex items-center gap-1">
+                  <button
+                    onClick={handleReduceRound}
+                    disabled={isSaving || atMinRounds}
+                    className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title={atMinRounds ? 'Minimum 1 round' : 'Reduce round'}
+                  >
+                    <Minus size={12} />
+                    <span>Reduce round</span>
+                  </button>
+                  <button
+                    onClick={handleAddRound}
+                    disabled={isSaving || atMaxRounds}
+                    className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title={atMaxRounds ? `Maximum ${MAX_MATCH_ROUNDS} rounds` : 'Add round'}
+                  >
+                    <Plus size={12} />
+                    <span>Add round</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

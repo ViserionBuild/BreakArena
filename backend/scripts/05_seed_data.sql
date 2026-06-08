@@ -5,7 +5,7 @@
 -- ============================================================
 
 -- ── Players ──────────────────────────────────────────────────
-INSERT INTO users (id, name, avatar) VALUES
+INSERT INTO players (id, name, avatar) VALUES
     ('11111111-0000-0000-0000-000000000001', 'Arjun',  'https://api.dicebear.com/7.x/thumbs/svg?seed=Arjun'),
     ('11111111-0000-0000-0000-000000000002', 'Priya',  'https://api.dicebear.com/7.x/thumbs/svg?seed=Priya'),
     ('11111111-0000-0000-0000-000000000003', 'Ravi',   'https://api.dicebear.com/7.x/thumbs/svg?seed=Ravi'),

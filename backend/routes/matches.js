@@ -2,9 +2,13 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const controller = require('../controllers/matchController');
 const { validate } = require('../middleware/validate');
+const { requireGroup } = require('../middleware/requireGroup');
 const { MATCH_STATUS, PLAYERS_PER_MATCH, MAX_TOTAL_ROUNDS } = require('../config/constants');
 
 const router = express.Router();
+
+// All match routes require group auth
+router.use(requireGroup);
 
 const uuidParam = param('id').isUUID().withMessage('Invalid match ID');
 
@@ -56,8 +60,11 @@ router.patch(
   controller.updateMatchTotalRounds
 );
 
+router.patch('/:id/reduce-round', uuidParam, validate, controller.reduceMatchTotalRounds);
+
 router.patch('/:id/resume', uuidParam, validate, controller.resumeMatch);
 
 router.delete('/:id', uuidParam, validate, controller.deleteMatch);
 
 module.exports = router;
+

@@ -7,12 +7,14 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
 const errorHandler = require('./middleware/errorHandler');
+const { getIndianTimestamp } = require('./utils/indianTime');
 
 // Routes
 const playerRoutes = require('./routes/players');
 const matchRoutes = require('./routes/matches');
 const roundRoutes = require('./routes/rounds');
 const analyticsRoutes = require('./routes/analytics');
+const groupRoutes = require('./routes/groups');
 
 const app = express();
 
@@ -61,10 +63,11 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', timestamp: getIndianTimestamp() });
 });
 
 // ── API routes ────────────────────────────────────────────────────────────────
+app.use('/api/v1/groups', groupRoutes);
 app.use('/api/v1/players', playerRoutes);
 app.use('/api/v1/matches', matchRoutes);
 app.use('/api/v1/rounds', roundRoutes);

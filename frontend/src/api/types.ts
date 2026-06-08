@@ -13,6 +13,7 @@ export interface ApiPlayer {
   name: string;
   avatar: string | null;
   color: string;
+  is_active: boolean;
   created_at: string;
   stats?: ApiPlayerStats;
 }

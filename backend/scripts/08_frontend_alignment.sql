@@ -5,7 +5,7 @@
 -- ============================================================
 
 -- Player color (used for charts / avatars in UI)
-ALTER TABLE users
+ALTER TABLE players
     ADD COLUMN IF NOT EXISTS color VARCHAR(7) NOT NULL DEFAULT '#fbbf24';
 
 -- Match total rounds (pre-created empty round rows)

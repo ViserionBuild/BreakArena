@@ -1,12 +1,12 @@
 const supabase = require('../database/supabase');
+const roundService = require('./roundService');
 const {
   MATCH_STATUS,
   PLAYERS_PER_MATCH,
   DEFAULT_TOTAL_ROUNDS,
   MAX_TOTAL_ROUNDS,
 } = require('../config/constants');
-
-const todayDate = () => new Date().toISOString().slice(0, 10);
+const { getIndianDateKey, getIndianDbTimestamp } = require('../utils/indianTime');
 
 const getNextMatchNumber = async (matchDate) => {
   const { count, error } = await supabase
@@ -21,9 +21,9 @@ const getNextMatchNumber = async (matchDate) => {
 /**
  * Create a new match. Players are stored as p1_id..p4_id directly on matches.
  * playerIds[0] = p1 (starts the match), playerIds[1] = p2, etc.
- * Rounds are created on demand — no pre-seeded empty rows needed.
+ * Empty round rows are pre-created up to totalRounds.
  */
-const createMatch = async (playerIds, totalRounds = DEFAULT_TOTAL_ROUNDS) => {
+const createMatch = async (playerIds, totalRounds = DEFAULT_TOTAL_ROUNDS, groupId = null) => {
   if (playerIds.length !== PLAYERS_PER_MATCH) {
     const err = new Error(`Exactly ${PLAYERS_PER_MATCH} players required`);
     err.statusCode = 400;
@@ -31,7 +31,7 @@ const createMatch = async (playerIds, totalRounds = DEFAULT_TOTAL_ROUNDS) => {
   }
 
   const safeTotalRounds = Math.min(Math.max(1, totalRounds), MAX_TOTAL_ROUNDS);
-  const matchDate = todayDate();
+  const matchDate = getIndianDateKey();
   const matchNumber = await getNextMatchNumber(matchDate);
 
   const { data: match, error: matchError } = await supabase
@@ -41,6 +41,7 @@ const createMatch = async (playerIds, totalRounds = DEFAULT_TOTAL_ROUNDS) => {
       match_date: matchDate,
       match_number: matchNumber,
       total_rounds: safeTotalRounds,
+      group_id: groupId,
       p1_id: playerIds[0],
       p2_id: playerIds[1],
       p3_id: playerIds[2],
@@ -54,6 +55,8 @@ const createMatch = async (playerIds, totalRounds = DEFAULT_TOTAL_ROUNDS) => {
     .single();
 
   if (matchError) throw matchError;
+
+  await roundService.createEmptyRoundsUpTo(match.id, safeTotalRounds);
 
   return getMatchById(match.id);
 };
@@ -99,7 +102,7 @@ const getMatchById = async (matchId) => {
   return match;
 };
 
-const getAllMatches = async ({ page = 1, limit = 20, status } = {}) => {
+const getAllMatches = async ({ page = 1, limit = 20, status, groupId } = {}) => {
   let query = supabase
     .from('matches')
     .select(
@@ -120,6 +123,7 @@ const getAllMatches = async ({ page = 1, limit = 20, status } = {}) => {
     .range((page - 1) * limit, page * limit - 1);
 
   if (status) query = query.eq('status', status);
+  if (groupId) query = query.eq('group_id', groupId);
 
   const { data, error, count } = await query;
   if (error) throw error;
@@ -154,6 +158,8 @@ const updateMatch = async (matchId, updates) => {
  * total_score (already stored on the matches row — no round join needed).
  */
 const completeMatch = async (matchId) => {
+  await roundService.recomputeMatchScores(matchId);
+
   const { data: m, error } = await supabase
     .from('matches')
     .select('p1_id, p1_total_score, p2_id, p2_total_score, p3_id, p3_total_score, p4_id, p4_total_score')
@@ -174,7 +180,10 @@ const completeMatch = async (matchId) => {
   return updateMatch(matchId, {
     status: MATCH_STATUS.COMPLETED,
     winner_id: players[0]?.id || null,
-    ended_at: new Date().toISOString(),
+    sec_winner_id: players[1]?.id || null,
+    third_winner_id: players[2]?.id || null,
+    fourth_winner_id: players[3]?.id || null,
+    ended_at: getIndianDbTimestamp(),
   });
 };
 
@@ -186,7 +195,7 @@ const deleteMatch = async (matchId) => {
 
 /**
  * Resume a completed or paused match back to active (live).
- * Clears winner/placement fields and ended_at. Any other active match is paused.
+ * Clears winner/placement fields and ended_at.
  */
 const resumeMatch = async (matchId) => {
   const { data: match, error } = await supabase
@@ -207,14 +216,6 @@ const resumeMatch = async (matchId) => {
     throw err;
   }
 
-  const { error: pauseError } = await supabase
-    .from('matches')
-    .update({ status: MATCH_STATUS.PAUSED })
-    .eq('status', MATCH_STATUS.ACTIVE)
-    .neq('id', matchId);
-
-  if (pauseError) throw pauseError;
-
   const { error: resumeError } = await supabase
     .from('matches')
     .update({
@@ -228,6 +229,8 @@ const resumeMatch = async (matchId) => {
     .eq('id', matchId);
 
   if (resumeError) throw resumeError;
+
+  await roundService.recomputeMatchScores(matchId);
 
   return getMatchById(matchId);
 };
@@ -285,6 +288,54 @@ const updateMatchTotalRounds = async (matchId, totalRounds) => {
 
   if (updateError) throw updateError;
 
+  await roundService.createEmptyRoundsUpTo(matchId, safeTotal);
+
+  return getMatchById(matchId);
+};
+
+const reduceMatchTotalRounds = async (matchId) => {
+  const { data: match, error } = await supabase
+    .from('matches')
+    .select('status, total_rounds')
+    .eq('id', matchId)
+    .single();
+
+  if (error) throw error;
+
+  if (match.status === MATCH_STATUS.COMPLETED) {
+    const err = new Error('Cannot reduce rounds on a completed match');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const currentTotal = Number(match.total_rounds);
+  if (currentTotal <= 1) {
+    const err = new Error('Match must have at least one round');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const { data: lastRound, error: roundError } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('match_id', matchId)
+    .order('round_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (roundError) throw roundError;
+
+  if (lastRound) {
+    await roundService.deleteRound(lastRound.id);
+  }
+
+  const { error: updateError } = await supabase
+    .from('matches')
+    .update({ total_rounds: currentTotal - 1 })
+    .eq('id', matchId);
+
+  if (updateError) throw updateError;
+
   return getMatchById(matchId);
 };
 
@@ -295,5 +346,7 @@ module.exports = {
   updateMatch,
   completeMatch,
   deleteMatch,
+  resumeMatch,
   updateMatchTotalRounds,
+  reduceMatchTotalRounds,
 };

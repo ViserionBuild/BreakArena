@@ -3,9 +3,10 @@ import { ArrowLeft, Trash2, Trophy, Calendar, Clock, ChevronRight, Play } from '
 import { useAppStore } from '../store/useAppStore';
 import PlayerAvatar from '../components/ui/PlayerAvatar';
 import { Match } from '../types';
-import { formatMatchLabel } from '../utils';
+import { formatMatchLabel, parseIndianTimestamp } from '../utils';
 import RoundScoreTable from '../components/scoreboard/RoundScoreTable';
 import MatchRankingTable from '../components/scoreboard/MatchRankingTable';
+import ScoreGraph from '../components/graphs/ScoreGraph';
 
 export default function MatchHistory() {
   const {
@@ -28,12 +29,12 @@ export default function MatchHistory() {
   }, [selectedHistoryMatchId, fetchMatch]);
 
   const sortedMatches = [...matches].sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    parseIndianTimestamp(b.createdAt).getTime() - parseIndianTimestamp(a.createdAt).getTime()
   );
 
   const getDuration = (match: Match) => {
     if (!match.endedAt) return null;
-    const ms = new Date(match.endedAt).getTime() - new Date(match.createdAt).getTime();
+    const ms = parseIndianTimestamp(match.endedAt).getTime() - parseIndianTimestamp(match.createdAt).getTime();
     const mins = Math.floor(ms / 60000);
     if (mins < 60) return `${mins}m`;
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
@@ -141,6 +142,8 @@ export default function MatchHistory() {
               <MatchRankingTable match={selectedMatch} players={players} />
             </aside>
           </div>
+
+          <ScoreGraph match={selectedMatch} players={players} />
           <div className="h-8" />
         </div>
       </div>

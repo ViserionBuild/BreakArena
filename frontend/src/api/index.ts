@@ -1,9 +1,48 @@
 import { api } from './client';
 import { isPlaceholderRoundId, mapMatch, mapPlayer } from './mappers';
 import { ApiMatch, ApiMatchList, ApiPlayer } from './types';
-import { Match, Player } from '../types';
+import { Group, Match, Player } from '../types';
 
 type PlayerScorePayload = { user_id: string; bid: number; actual_wins: number };
+
+interface GroupAuthResponse {
+  group: Group;
+  token: string;
+}
+
+export const groupsApi = {
+  create: async (name: string, passcode: string): Promise<GroupAuthResponse> => {
+    return api<GroupAuthResponse>('/groups/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, passcode }),
+    });
+  },
+
+  signIn: async (name: string, passcode: string): Promise<GroupAuthResponse> => {
+    return api<GroupAuthResponse>('/groups/signin', {
+      method: 'POST',
+      body: JSON.stringify({ name, passcode }),
+    });
+  },
+
+  resetPasscode: async (
+    name: string,
+    currentPasscode: string,
+    newPasscode: string
+  ): Promise<GroupAuthResponse> => {
+    return api<GroupAuthResponse>('/groups/reset-passcode', {
+      method: 'POST',
+      body: JSON.stringify({ name, currentPasscode, newPasscode }),
+    });
+  },
+
+  getMe: async (token: string): Promise<{ group: Group }> => {
+    return api<{ group: Group }>('/groups/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+};
+
 
 export const playersApi = {
   list: async (): Promise<Player[]> => {
@@ -29,6 +68,10 @@ export const playersApi = {
 
   delete: async (id: string): Promise<void> => {
     await api<null>(`/players/${id}`, { method: 'DELETE' });
+  },
+
+  reactivate: async (id: string): Promise<void> => {
+    await api<null>(`/players/${id}/reactivate`, { method: 'PATCH' });
   },
 };
 
@@ -68,6 +111,11 @@ export const matchesApi = {
       method: 'PATCH',
       body: JSON.stringify({ total_rounds: totalRounds }),
     });
+    return mapMatch(data);
+  },
+
+  reduceTotalRounds: async (id: string): Promise<Match> => {
+    const data = await api<ApiMatch>(`/matches/${id}/reduce-round`, { method: 'PATCH' });
     return mapMatch(data);
   },
 

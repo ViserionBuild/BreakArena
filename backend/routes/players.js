@@ -2,8 +2,12 @@ const express = require('express');
 const { body, param } = require('express-validator');
 const controller = require('../controllers/playerController');
 const { validate } = require('../middleware/validate');
+const { requireGroup } = require('../middleware/requireGroup');
 
 const router = express.Router();
+
+// All player routes require group auth
+router.use(requireGroup);
 
 const uuidParam = param('id').isUUID().withMessage('Invalid player ID');
 
@@ -31,5 +35,7 @@ router.get('/:id/stats', uuidParam, validate, controller.getPlayerStats);
 router.post('/', playerBody, validate, controller.createPlayer);
 router.put('/:id', uuidParam, ...playerBody, validate, controller.updatePlayer);
 router.delete('/:id', uuidParam, validate, controller.deletePlayer);
+router.patch('/:id/reactivate', uuidParam, validate, controller.reactivatePlayer);
 
 module.exports = router;
+

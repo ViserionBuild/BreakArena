@@ -7,29 +7,29 @@
 -- ============================================================
 
 -- ── Enable RLS on all tables ────────────────────────────────
-ALTER TABLE users         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE players         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rounds        ENABLE ROW LEVEL SECURITY;
 
--- ── USERS ───────────────────────────────────────────────────
+-- ── players ───────────────────────────────────────────────────
 -- Public can read all players
-CREATE POLICY "users_select_public"
-    ON users FOR SELECT
+CREATE POLICY "players_select_public"
+    ON players FOR SELECT
     USING (true);
 
 -- Public can insert new players
-CREATE POLICY "users_insert_public"
-    ON users FOR INSERT
+CREATE POLICY "players_insert_public"
+    ON players FOR INSERT
     WITH CHECK (true);
 
 -- Public can update players
-CREATE POLICY "users_update_public"
-    ON users FOR UPDATE
+CREATE POLICY "players_update_public"
+    ON players FOR UPDATE
     USING (true);
 
 -- Public can delete players
-CREATE POLICY "users_delete_public"
-    ON users FOR DELETE
+CREATE POLICY "players_delete_public"
+    ON players FOR DELETE
     USING (true);
 
 -- ── MATCHES ─────────────────────────────────────────────────

@@ -12,11 +12,21 @@ const getMatchAnalytics = async (req, res, next) => {
 
 const getGlobalLeaderboard = async (req, res, next) => {
   try {
-    const data = await analyticsService.getGlobalLeaderboard();
+    const data = await analyticsService.getGlobalLeaderboard(req.groupId);
     sendSuccess(res, data);
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { getMatchAnalytics, getGlobalLeaderboard };
+const getPlayerBidAccuracy = async (req, res, next) => {
+  try {
+    const data = await analyticsService.getPlayerBidAccuracy(req.groupId);
+    sendSuccess(res, data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getMatchAnalytics, getGlobalLeaderboard, getPlayerBidAccuracy };
+

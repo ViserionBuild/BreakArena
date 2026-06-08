@@ -16,10 +16,29 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
+/** Read the persisted group JWT from Zustand's localStorage entry. */
+function getGroupToken(): string | null {
+  try {
+    const raw = localStorage.getItem('callbreak-ui');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state?.groupToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getGroupToken();
+
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...authHeader,
       ...options.headers,
     },
     ...options,

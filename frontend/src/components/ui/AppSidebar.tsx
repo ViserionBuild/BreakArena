@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
@@ -13,7 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { formatMatchLabel } from '../../utils';
+import { formatMatchLabel, parseIndianTimestamp } from '../../utils';
 import { Match, Page } from '../../types';
 
 const topNav: { page: Page; icon: ReactNode; label: string }[] = [
@@ -23,13 +24,26 @@ const topNav: { page: Page; icon: ReactNode; label: string }[] = [
 ];
 
 export default function AppSidebar() {
-  const { currentPage, setPage, matches, players, selectedHistoryMatchId, setSelectedHistoryMatchId } = useAppStore();
+  const {
+    currentPage,
+    setPage,
+    matches,
+    players,
+    activeMatchId,
+    setActiveMatchId,
+    selectedHistoryMatchId,
+    setSelectedHistoryMatchId,
+    currentGroup,
+    groupSignOut,
+  } = useAppStore();
   const [collapsed, setCollapsed] = useState(false);
 
-  const activeMatches = matches.filter((match) => match.status === 'active');
+  const liveMatches = matches
+    .filter((match) => match.status === 'active' || match.status === 'paused')
+    .sort((a, b) => parseIndianTimestamp(b.createdAt).getTime() - parseIndianTimestamp(a.createdAt).getTime());
   const pastMatches = matches
     .filter((match) => match.status === 'completed')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) => parseIndianTimestamp(b.createdAt).getTime() - parseIndianTimestamp(a.createdAt).getTime());
 
   const goToPage = (page: Page) => {
     setSelectedHistoryMatchId(null);
@@ -37,7 +51,8 @@ export default function AppSidebar() {
   };
 
   const openMatch = (match: Match) => {
-    if (match.status === 'active') {
+    if (match.status === 'active' || match.status === 'paused') {
+      setActiveMatchId(match.id);
       setSelectedHistoryMatchId(null);
       setPage('liveMatch');
       return;
@@ -106,25 +121,27 @@ export default function AppSidebar() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-        {activeMatches.length > 0 && (
+        {liveMatches.length > 0 && (
           <div className="mb-5">
-            {!collapsed && <div className="sidebar-section-label">Current</div>}
+            {!collapsed && <div className="sidebar-section-label">Live Matches</div>}
             <div className="space-y-1">
-              {activeMatches.map((match) => (
+              {liveMatches.map((match) => (
                 <button
                   key={match.id}
                   onClick={() => openMatch(match)}
-                  className={`sidebar-match ${currentPage === 'liveMatch' ? 'active' : ''} ${collapsed ? 'justify-center px-0' : ''}`}
+                  className={`sidebar-match ${currentPage === 'liveMatch' && activeMatchId === match.id ? 'active' : ''} ${collapsed ? 'justify-center px-0' : ''}`}
                   title={formatMatchLabel(matches, match.createdAt, match.matchDate, match.matchNumber)}
                 >
                   <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-jade-400/15 text-jade-400">
                     <Play size={15} />
-                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-jade-400" />
+                    {match.status === 'active' && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-jade-400" />}
                   </span>
                   {!collapsed && (
                     <span className="min-w-0 flex-1 text-left">
-                      <span className="block truncate text-sm text-white">Live match</span>
-                      <span className="block truncate text-xs text-white/35">{match.totalRounds ?? match.rounds.length} rounds</span>
+                      <span className="block truncate text-sm text-white">{formatMatchLabel(matches, match.createdAt, match.matchDate, match.matchNumber)}</span>
+                      <span className={`block truncate text-xs ${match.status === 'active' ? 'text-jade-400/70' : 'text-white/35'}`}>
+                        {match.status === 'active' ? 'Live' : 'Paused'}
+                      </span>
                     </span>
                   )}
                   {!collapsed && <ChevronRight size={14} className="text-white/25" />}
@@ -163,6 +180,33 @@ export default function AppSidebar() {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Group footer */}
+      <div className={`border-t border-white/5 px-3 py-3 ${
+        collapsed ? 'flex justify-center' : 'space-y-1'
+      }`}>
+        {!collapsed && currentGroup && (
+          <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
+            <div className="w-6 h-6 rounded-md bg-gold-500/20 flex items-center justify-center text-gold-400 text-xs font-bold shrink-0">
+              {currentGroup.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold text-white/70 truncate">{currentGroup.name}</div>
+              <div className="text-[10px] text-white/30">Group</div>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={groupSignOut}
+          className={`sidebar-button text-crimson-400/60 hover:text-crimson-400 hover:bg-crimson-500/10 ${
+            collapsed ? 'justify-center' : ''
+          }`}
+          title="Sign out"
+        >
+          <LogOut size={16} />
+          {!collapsed && <span>Sign Out</span>}
+        </button>
       </div>
 
       <button

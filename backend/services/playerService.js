@@ -1,7 +1,7 @@
 const supabase = require('../database/supabase');
 const { PLAYER_COLORS } = require('../config/constants');
 
-const TABLE = 'users';
+const TABLE = 'players';
 
 const mapStats = (row) => ({
   player_id: row.player_id,
@@ -13,10 +13,12 @@ const mapStats = (row) => ({
   avg_score_per_round: Number(row.avg_score_per_round ?? 0),
 });
 
-const getAllPlayers = async () => {
+const getAllPlayers = async (groupId) => {
+  // Return ALL players (active + inactive) for this group so the UI can segregate them.
   const { data: players, error } = await supabase
     .from(TABLE)
     .select('*')
+    .eq('group_id', groupId)
     .order('name', { ascending: true });
 
   if (error) throw error;
@@ -53,25 +55,30 @@ const getAllPlayers = async () => {
   }));
 };
 
-const getPlayerById = async (id) => {
-  const { data, error } = await supabase.from(TABLE).select('*').eq('id', id).single();
+const getPlayerById = async (id, groupId) => {
+  const query = supabase.from(TABLE).select('*').eq('id', id);
+  if (groupId) query.eq('group_id', groupId);
+  const { data, error } = await query.single();
   if (error) throw error;
   const stats = await getPlayerStats(id);
   return { ...data, stats };
 };
 
-const pickColor = async () => {
-  const { count, error } = await supabase.from(TABLE).select('*', { count: 'exact', head: true });
+const pickColor = async (groupId) => {
+  const { count, error } = await supabase
+    .from(TABLE)
+    .select('*', { count: 'exact', head: true })
+    .eq('group_id', groupId);
   if (error) throw error;
   return PLAYER_COLORS[(count ?? 0) % PLAYER_COLORS.length];
 };
 
-const createPlayer = async ({ name, avatar = null, color = null }) => {
-  const playerColor = color || (await pickColor());
+const createPlayer = async ({ name, avatar = null, color = null, groupId }) => {
+  const playerColor = color || (await pickColor(groupId));
 
   const { data, error } = await supabase
     .from(TABLE)
-    .insert({ name, avatar, color: playerColor })
+    .insert({ name, avatar, color: playerColor, group_id: groupId })
     .select()
     .single();
 
@@ -90,21 +97,29 @@ const createPlayer = async ({ name, avatar = null, color = null }) => {
   };
 };
 
-const updatePlayer = async (id, updates) => {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+const updatePlayer = async (id, updates, groupId) => {
+  const query = supabase.from(TABLE).update(updates).eq('id', id);
+  if (groupId) query.eq('group_id', groupId);
+  const { data, error } = await query.select().single();
 
   if (error) throw error;
   const stats = await getPlayerStats(id);
   return { ...data, stats };
 };
 
-const deletePlayer = async (id) => {
-  const { error } = await supabase.from(TABLE).delete().eq('id', id);
+const deletePlayer = async (id, groupId) => {
+  // Soft-delete: mark inactive so all historical match/round data is preserved.
+  const query = supabase.from(TABLE).update({ is_active: false }).eq('id', id);
+  if (groupId) query.eq('group_id', groupId);
+  const { error } = await query;
+  if (error) throw error;
+  return true;
+};
+
+const reactivatePlayer = async (id, groupId) => {
+  const query = supabase.from(TABLE).update({ is_active: true }).eq('id', id);
+  if (groupId) query.eq('group_id', groupId);
+  const { error } = await query;
   if (error) throw error;
   return true;
 };
@@ -158,5 +173,7 @@ module.exports = {
   createPlayer,
   updatePlayer,
   deletePlayer,
+  reactivatePlayer,
   getPlayerStats,
 };
+

@@ -8,6 +8,7 @@ const listMatches = async (req, res, next) => {
       page: Number(page),
       limit: Number(limit),
       status,
+      groupId: req.groupId,
     });
     sendSuccess(res, result);
   } catch (err) {
@@ -28,7 +29,7 @@ const getMatch = async (req, res, next) => {
 const createMatch = async (req, res, next) => {
   try {
     const { player_ids, total_rounds } = req.body;
-    const match = await matchService.createMatch(player_ids, total_rounds);
+    const match = await matchService.createMatch(player_ids, total_rounds, req.groupId);
     sendSuccess(res, match, 'Match created', 201);
   } catch (err) {
     next(err);
@@ -74,6 +75,15 @@ const updateMatchTotalRounds = async (req, res, next) => {
   }
 };
 
+const reduceMatchTotalRounds = async (req, res, next) => {
+  try {
+    const match = await matchService.reduceMatchTotalRounds(req.params.id);
+    sendSuccess(res, match, 'Round removed');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const resumeMatch = async (req, res, next) => {
   try {
     const match = await matchService.resumeMatch(req.params.id);
@@ -90,5 +100,7 @@ module.exports = {
   updateMatch,
   deleteMatch,
   updateMatchTotalRounds,
+  reduceMatchTotalRounds,
   resumeMatch,
 };
+

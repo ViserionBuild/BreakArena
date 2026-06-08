@@ -7,7 +7,8 @@
     box-sizing: border-box;
   }
 
-  html, body {
+  html,
+  body {
     @apply bg-ink-950 text-white;
     font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -17,13 +18,16 @@
   ::-webkit-scrollbar {
     width: 4px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     background: rgba(251, 191, 36, 0.3);
     border-radius: 2px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(251, 191, 36, 0.6);
   }
@@ -40,7 +44,7 @@
     backdrop-filter: blur(20px);
     border: 1px solid rgba(251, 191, 36, 0.1);
   }
-  
+
   .glass-card {
     background: linear-gradient(135deg, rgba(30, 30, 53, 0.9) 0%, rgba(22, 22, 42, 0.95) 100%);
     backdrop-filter: blur(20px);
@@ -58,8 +62,7 @@
   }
 
   .btn-primary {
-    @apply relative overflow-hidden bg-gold-500 text-ink-950 font-semibold px-6 py-3 rounded-xl
-           transition-all duration-300 hover:bg-gold-400 hover:shadow-lg active:scale-95;
+    @apply relative overflow-hidden bg-gold-500 text-ink-950 font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:bg-gold-400 hover:shadow-lg active:scale-95;
     box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
     font-family: 'DM Sans', sans-serif;
   }
@@ -68,7 +71,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
     transform: translateX(-100%);
     transition: transform 0.5s;
   }
@@ -78,14 +81,12 @@
   }
 
   .btn-ghost {
-    @apply relative overflow-hidden border border-white/10 text-white/70 font-medium px-6 py-3 rounded-xl
-           transition-all duration-300 hover:border-gold-500/50 hover:text-gold-400 hover:bg-gold-500/5 active:scale-95;
+    @apply relative overflow-hidden border border-white/10 text-white/70 font-medium px-6 py-3 rounded-xl transition-all duration-300 hover:border-gold-500/50 hover:text-gold-400 hover:bg-gold-500/5 active:scale-95;
     font-family: 'DM Sans', sans-serif;
   }
 
   .btn-danger {
-    @apply relative overflow-hidden bg-crimson-600/20 border border-crimson-500/30 text-crimson-400 font-medium px-4 py-2 rounded-lg
-           transition-all duration-300 hover:bg-crimson-600/40 hover:border-crimson-400/50 active:scale-95;
+    @apply relative overflow-hidden bg-crimson-600/20 border border-crimson-500/30 text-crimson-400 font-medium px-4 py-2 rounded-lg transition-all duration-300 hover:bg-crimson-600/40 hover:border-crimson-400/50 active:scale-95;
     font-family: 'DM Sans', sans-serif;
   }
 
@@ -93,26 +94,47 @@
     @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold font-mono;
   }
 
-  .rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #0a0a0f; }
-  .rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #0a0a0f; }
-  .rank-3 { background: linear-gradient(135deg, #cd7c2f, #b45309); color: white; }
-  .rank-4 { @apply bg-white/10 text-white/60; }
+  .rank-1 {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #0a0a0f;
+  }
+
+  .rank-2 {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    color: #0a0a0f;
+  }
+
+  .rank-3 {
+    background: linear-gradient(135deg, #cd7c2f, #b45309);
+    color: white;
+  }
+
+  .rank-4 {
+    @apply bg-white/10 text-white/60;
+  }
 
   .input-field {
-    @apply w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30
-           focus:outline-none focus:border-gold-500/50 focus:ring-2 focus:ring-gold-500/20 transition-all;
+    @apply w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-gold-500/50 focus:ring-2 focus:ring-gold-500/20 transition-all;
     font-family: 'DM Sans', sans-serif;
   }
 
-  .score-positive { @apply text-jade-400; }
-  .score-negative { @apply text-crimson-400; }
-  .score-neutral { @apply text-white/60; }
+  .score-positive {
+    @apply text-jade-400;
+  }
+
+  .score-negative {
+    @apply text-crimson-400;
+  }
+
+  .score-neutral {
+    @apply text-white/60;
+  }
 
   .page-container {
     @apply min-h-screen pb-8;
     background: radial-gradient(ellipse at top, rgba(30, 20, 60, 0.5) 0%, transparent 70%),
-                radial-gradient(ellipse at bottom right, rgba(20, 40, 30, 0.3) 0%, transparent 60%),
-                #0a0a0f;
+      radial-gradient(ellipse at bottom right, rgba(20, 40, 30, 0.3) 0%, transparent 60%),
+      #0a0a0f;
   }
 
   .app-shell {
@@ -153,29 +175,50 @@
   }
 
   .nav-item {
-    @apply flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200
-           text-white/40 hover:text-white/70;
+    @apply flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 text-white/40 hover:text-white/70;
   }
 
   .nav-item.active {
     @apply text-gold-400;
   }
 
-  .suit-spade { color: #fbbf24; }
-  .suit-heart { color: #f87171; }
-  .suit-diamond { color: #4ade80; }
-  .suit-club { color: #a78bfa; }
+  .suit-spade {
+    color: #fbbf24;
+  }
+
+  .suit-heart {
+    color: #f87171;
+  }
+
+  .suit-diamond {
+    color: #4ade80;
+  }
+
+  .suit-club {
+    color: #a78bfa;
+  }
 
   .shimmer-line {
-    background: linear-gradient(90deg, transparent, rgba(251,191,36,0.1), transparent);
+    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.1), transparent);
     background-size: 200% 100%;
     animation: shimmer 3s linear infinite;
   }
 
-  .card-glow-gold { box-shadow: 0 0 30px rgba(251, 191, 36, 0.15); }
-  .card-glow-crimson { box-shadow: 0 0 30px rgba(239, 68, 68, 0.15); }
-  .card-glow-jade { box-shadow: 0 0 30px rgba(74, 222, 128, 0.15); }
-  .card-glow-violet { box-shadow: 0 0 30px rgba(167, 139, 250, 0.15); }
+  .card-glow-gold {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.15);
+  }
+
+  .card-glow-crimson {
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.15);
+  }
+
+  .card-glow-jade {
+    box-shadow: 0 0 30px rgba(74, 222, 128, 0.15);
+  }
+
+  .card-glow-violet {
+    box-shadow: 0 0 30px rgba(167, 139, 250, 0.15);
+  }
 }
 
 /* Floating card suits in background */
@@ -276,7 +319,8 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* Round table (tabular UI) */
 .round-table-wrap {
-  overflow-x: auto;
+  max-height: 35rem;
+  overflow: auto;
 }
 
 .round-table {
@@ -311,12 +355,15 @@ input[type="number"]::-webkit-outer-spin-button {
 .round-table tfoot td {
   background: rgba(12, 12, 20, 0.9);
   border-top: 1px solid rgba(255, 255, 255, 0.12);
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
 }
 
 .round-col {
-  @apply text-left px-3;
-  width: 108px;
-  min-width: 108px;
+  @apply text-left px-2;
+  width: 92px;
+  min-width: 92px;
 }
 
 .cell-button {
@@ -337,11 +384,11 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .cell-editor {
-  @apply flex flex-col items-center gap-1 py-2;
+  @apply flex flex-col items-center gap-0.5 py-0.5;
 }
 
 .cell-editor-row {
-  @apply flex items-center gap-1;
+  @apply flex items-center gap-1.5;
 }
 
 .cell-label {
@@ -349,7 +396,8 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .cell-input {
-  @apply w-10 rounded-md bg-white/5 text-white text-xs font-mono text-center border border-white/10 focus:outline-none focus:border-white/30;
+  @apply h-6 w-9 rounded-md bg-white/5 text-white text-[16px] font-semibold font-mono text-center border border-white/10 focus:outline-none focus:border-white/30;
+  line-height: 1;
 }
 
 .cell-input:disabled {
@@ -373,6 +421,11 @@ input[type="number"]::-webkit-outer-spin-button {
 .cell-input.over {
   background: #dc2626;
   color: white;
+}
+
+.cell-input.max-actual {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.9), 0 0 10px rgba(56, 189, 248, 0.35);
 }
 
 .cell-actions {
@@ -403,9 +456,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* Tooltip */
 .tooltip {
-  @apply absolute z-50 bg-ink-700 text-white text-xs rounded-lg px-3 py-2 shadow-xl
-         pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200
-         whitespace-nowrap;
+  @apply absolute z-50 bg-ink-700 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);

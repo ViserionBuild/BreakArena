@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { matchesApi, playersApi, roundsApi } from '../api';
+import { matchesApi, playersApi, roundsApi, groupsApi } from '../api';
 import { isPlaceholderRoundId } from '../api/mappers';
 import { ApiError } from '../api/client';
-import { Player, Match, Page } from '../types';
+import { Group, Player, Match, Page } from '../types';
 
 interface AppState {
   currentPage: Page;
@@ -16,9 +16,18 @@ interface AppState {
   error: string | null;
   clearError: () => void;
 
+  // ── Group auth ──
+  currentGroup: Group | null;
+  groupToken: string | null;
+  groupSignIn: (name: string, passcode: string) => Promise<void>;
+  groupCreate: (name: string, passcode: string) => Promise<void>;
+  groupResetPasscode: (name: string, current: string, next: string) => Promise<void>;
+  groupSignOut: () => void;
+
   players: Player[];
   matches: Match[];
   activeMatchId: string | null;
+  setActiveMatchId: (matchId: string | null) => void;
 
   initialize: () => Promise<void>;
   refreshPlayers: () => Promise<void>;
@@ -28,6 +37,7 @@ interface AppState {
   addPlayer: (name: string, avatar: string) => Promise<void>;
   updatePlayer: (id: string, name: string, avatar: string) => Promise<void>;
   deletePlayer: (id: string) => Promise<void>;
+  reactivatePlayer: (id: string) => Promise<void>;
 
   createMatch: (playerIds: string[], totalRounds?: number) => Promise<string>;
   initializeMatchRounds: (matchId: string) => Promise<void>;
@@ -42,6 +52,7 @@ interface AppState {
   redoLastRound: (matchId: string) => Promise<void>;
   deleteRound: (matchId: string, roundId: string) => Promise<void>;
   increaseMatchRounds: (matchId: string) => Promise<void>;
+  reduceMatchRounds: (matchId: string) => Promise<void>;
   endMatch: (matchId: string) => Promise<void>;
   resumeMatch: (matchId: string) => Promise<void>;
   deleteMatch: (matchId: string) => Promise<void>;
@@ -56,13 +67,21 @@ const mergeMatch = (matches: Match[], match: Match): Match[] => {
   return matches.map((entry) => (entry.id === match.id ? match : entry));
 };
 
+const isLiveMatch = (match: Match): boolean => match.status === 'active' || match.status === 'paused';
+
+const getSelectedLiveMatchId = (matches: Match[], selectedMatchId: string | null): string | null => {
+  const selectedMatch = selectedMatchId ? matches.find((match) => match.id === selectedMatchId) : null;
+  if (selectedMatch && isLiveMatch(selectedMatch)) return selectedMatch.id;
+  return matches.find(isLiveMatch)?.id ?? null;
+};
+
 const getErrorMessage = (error: unknown) =>
   error instanceof ApiError ? error.message : 'Something went wrong. Please try again.';
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      currentPage: 'dashboard',
+      currentPage: 'groupAuth',
       setPage: (page) => set({ currentPage: page }),
       selectedHistoryMatchId: null,
       setSelectedHistoryMatchId: (matchId) => set({ selectedHistoryMatchId: matchId }),
@@ -72,9 +91,60 @@ export const useAppStore = create<AppState>()(
       error: null,
       clearError: () => set({ error: null }),
 
+      // ── Group auth ──
+      currentGroup: null,
+      groupToken: null,
+
+      groupSignIn: async (name, passcode) => {
+        set({ isSaving: true, error: null });
+        try {
+          const { group, token } = await groupsApi.signIn(name, passcode);
+          set({ currentGroup: group, groupToken: token, isSaving: false, currentPage: 'dashboard' });
+          await get().initialize();
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      groupCreate: async (name, passcode) => {
+        set({ isSaving: true, error: null });
+        try {
+          const { group, token } = await groupsApi.create(name, passcode);
+          set({ currentGroup: group, groupToken: token, isSaving: false, currentPage: 'dashboard' });
+          await get().initialize();
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      groupResetPasscode: async (name, current, next) => {
+        set({ isSaving: true, error: null });
+        try {
+          const { group, token } = await groupsApi.resetPasscode(name, current, next);
+          set({ currentGroup: group, groupToken: token, isSaving: false });
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      groupSignOut: () => {
+        set({
+          currentGroup: null,
+          groupToken: null,
+          currentPage: 'groupAuth',
+          players: [],
+          matches: [],
+          activeMatchId: null,
+        });
+      },
+
       players: [],
       matches: [],
       activeMatchId: null,
+      setActiveMatchId: (matchId) => set({ activeMatchId: matchId }),
 
       initialize: async () => {
         set({ isLoading: true, error: null });
@@ -83,11 +153,10 @@ export const useAppStore = create<AppState>()(
             playersApi.list(),
             matchesApi.list({ limit: 100 }),
           ]);
-          const activeMatch = matches.find((match) => match.status === 'active');
           set({
             players,
             matches,
-            activeMatchId: activeMatch?.id ?? null,
+            activeMatchId: getSelectedLiveMatchId(matches, get().activeMatchId),
             isLoading: false,
           });
         } catch (error) {
@@ -107,10 +176,9 @@ export const useAppStore = create<AppState>()(
       refreshMatches: async () => {
         try {
           const matches = await matchesApi.list({ limit: 100 });
-          const activeMatch = matches.find((match) => match.status === 'active');
           set({
             matches,
-            activeMatchId: activeMatch?.id ?? get().activeMatchId,
+            activeMatchId: getSelectedLiveMatchId(matches, get().activeMatchId),
             error: null,
           });
         } catch (error) {
@@ -166,8 +234,27 @@ export const useAppStore = create<AppState>()(
         set({ isSaving: true, error: null });
         try {
           await playersApi.delete(id);
+          // Soft-delete: keep the player in the store but mark inactive
           set((state) => ({
-            players: state.players.filter((player) => player.id !== id),
+            players: state.players.map((player) =>
+              player.id === id ? { ...player, isActive: false } : player
+            ),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
+      reactivatePlayer: async (id) => {
+        set({ isSaving: true, error: null });
+        try {
+          await playersApi.reactivate(id);
+          set((state) => ({
+            players: state.players.map((player) =>
+              player.id === id ? { ...player, isActive: true } : player
+            ),
             isSaving: false,
           }));
         } catch (error) {
@@ -292,6 +379,23 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      reduceMatchRounds: async (matchId) => {
+        const match = get().matches.find((entry) => entry.id === matchId);
+        if (!match?.totalRounds || match.totalRounds <= 1) return;
+
+        set({ isSaving: true, error: null });
+        try {
+          const updatedMatch = await matchesApi.reduceTotalRounds(matchId);
+          set((state) => ({
+            matches: mergeMatch(state.matches, updatedMatch),
+            isSaving: false,
+          }));
+        } catch (error) {
+          set({ isSaving: false, error: getErrorMessage(error) });
+          throw error;
+        }
+      },
+
       endMatch: async (matchId) => {
         set({ isSaving: true, error: null });
         try {
@@ -312,10 +416,15 @@ export const useAppStore = create<AppState>()(
       resumeMatch: async (matchId) => {
         set({ isSaving: true, error: null });
         try {
-          await matchesApi.resume(matchId);
+          const resumedMatch = await matchesApi.resume(matchId);
           const matches = await matchesApi.list({ limit: 100 });
+          const normalizedMatches = matches.map((match) => {
+            if (match.id === resumedMatch.id) return resumedMatch;
+            return match;
+          });
+
           set({
-            matches,
+            matches: mergeMatch(normalizedMatches, resumedMatch),
             activeMatchId: matchId,
             selectedHistoryMatchId: null,
             currentPage: 'liveMatch',
@@ -356,6 +465,8 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         currentPage: state.currentPage,
         selectedHistoryMatchId: state.selectedHistoryMatchId,
+        currentGroup: state.currentGroup,
+        groupToken: state.groupToken,
       }),
     }
   )

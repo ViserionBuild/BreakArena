@@ -51,6 +51,12 @@ const syncMatchTotals = async (matchId) => {
   if (updateError) throw updateError;
 };
 
+const recomputeMatchScores = async (matchId) => {
+  const slots = await getMatchSlots(matchId);
+  await recomputeSubsequentRounds(matchId, 1, slots);
+  await syncMatchTotals(matchId);
+};
+
 /**
  * Build a rounds INSERT/UPDATE payload from playerScores array.
  * playerScores = [{ user_id, bid, actual_wins }, ...]
@@ -74,6 +80,39 @@ const buildRoundPayload = (matchId, roundNumber, playerScores, slots, prevTotals
   }
 
   return payload;
+};
+
+const createEmptyRoundsUpTo = async (matchId, targetRoundCount) => {
+  const slots = await getMatchSlots(matchId);
+  const { data: existingRounds, error } = await supabase
+    .from('rounds')
+    .select('round_number, p1_total_score, p2_total_score, p3_total_score, p4_total_score')
+    .eq('match_id', matchId)
+    .order('round_number', { ascending: true });
+
+  if (error) throw error;
+
+  let prevTotals = { p1_total_score: 0, p2_total_score: 0, p3_total_score: 0, p4_total_score: 0 };
+
+  for (let roundNumber = 1; roundNumber <= targetRoundCount; roundNumber++) {
+    const existingRound = existingRounds?.find((round) => round.round_number === roundNumber);
+    if (existingRound) {
+      prevTotals = existingRound;
+      continue;
+    }
+
+    const payload = buildRoundPayload(matchId, roundNumber, [], slots, prevTotals);
+    const { data: insertedRound, error: insertError } = await supabase
+      .from('rounds')
+      .insert(payload)
+      .select('round_number, p1_total_score, p2_total_score, p3_total_score, p4_total_score')
+      .single();
+
+    if (insertError) throw insertError;
+    prevTotals = insertedRound;
+  }
+
+  await recomputeMatchScores(matchId);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -205,12 +244,10 @@ const recomputeSubsequentRounds = async (matchId, fromRoundNumber, slots) => {
 };
 
 /**
- * Patch a single player's bid/actual_wins in a round (identified by slot: 1-4).
+ * Patch a single player's bid/actual_wins in a round.
  * Recalculates totals for this round and all subsequent rounds.
  */
-const patchRoundScore = async (roundId, slot, bid, actualWins) => {
-  if (slot < 1 || slot > 4) throw Object.assign(new Error('slot must be 1-4'), { statusCode: 400 });
-
+const patchRoundScore = async (roundId, userId, bid, actualWins) => {
   const { data: round, error: fetchError } = await supabase
     .from('rounds')
     .select('*')
@@ -221,6 +258,11 @@ const patchRoundScore = async (roundId, slot, bid, actualWins) => {
 
   const { match_id: matchId, round_number: roundNumber } = round;
   const slots = await getMatchSlots(matchId);
+  const slot = [1, 2, 3, 4].find((index) => slots[`p${index}_id`] === userId);
+
+  if (!slot) {
+    throw Object.assign(new Error('Player is not part of this match'), { statusCode: 400 });
+  }
 
   // Get prev round totals
   const { data: prev } = await supabase
@@ -309,4 +351,6 @@ module.exports = {
   patchRoundScore,
   deleteRound,
   getRoundsByMatch,
+  recomputeMatchScores,
+  createEmptyRoundsUpTo,
 };

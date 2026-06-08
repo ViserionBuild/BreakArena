@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import AppSidebar from './components/ui/AppSidebar';
+import GroupAuth from './pages/GroupAuth';
 import Dashboard from './pages/Dashboard';
 import PlayerManagement from './pages/PlayerManagement';
 import MatchSetup from './pages/MatchSetup';
@@ -9,20 +10,29 @@ import MatchHistory from './pages/MatchHistory';
 import Analytics from './pages/Analytics';
 
 export default function App() {
-  const { currentPage, initialize, isLoading, error, clearError } = useAppStore();
+  const { currentPage, currentGroup, groupToken, initialize, isLoading, error, clearError } = useAppStore();
 
+  // On mount: if we have a persisted token, restore data.
+  // If the token is invalid the API will fail gracefully.
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    if (currentGroup && groupToken) {
+      initialize();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Not authenticated → full-screen auth gate
+  if (!currentGroup || !groupToken || currentPage === 'groupAuth') {
+    return <GroupAuth />;
+  }
 
   const pages = {
-    dashboard: <Dashboard />,
-    players: <PlayerManagement />,
+    dashboard:  <Dashboard />,
+    players:    <PlayerManagement />,
     matchSetup: <MatchSetup />,
-    liveMatch: <LiveMatch />,
-    history: <MatchHistory />,
-    analytics: <Analytics />,
-  };
+    liveMatch:  <LiveMatch />,
+    history:    <MatchHistory />,
+    analytics:  <Analytics />,
+  } as Record<string, JSX.Element>;
 
   return (
     <div className="app-shell bg-ink-950">
@@ -49,7 +59,7 @@ export default function App() {
               </div>
             )}
             <div key={currentPage} className="page-enter min-h-screen">
-              {pages[currentPage]}
+              {pages[currentPage] ?? <Dashboard />}
             </div>
           </>
         )}

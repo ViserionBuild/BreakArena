@@ -1,12 +1,86 @@
 import { useState } from 'react';
-import { ChevronUp, ChevronDown, Play, Info } from 'lucide-react';
+import { ChevronUp, ChevronDown, Play, Info, Plus, X, Check } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import PlayerAvatar from '../components/ui/PlayerAvatar';
 
+/* ─── Avatar picker (same groups as PlayerManagement) ─── */
+const AVATAR_GROUPS = [
+  {
+    label: '🐲 Dragons',
+    emojis: ['🐉', '🐲', '🦕', '🦖', '🔥', '🧨', '⚡', '🌪️', '💥', '🌊', '❄️', '☄️', '🌋', '🐍', '🦎', '🦜', '🦚', '🦅', '🦇', '🪲'],
+  },
+  {
+    label: '🍎 Fruits',
+    emojis: ['🍎', '🍊', '🍋', '🍇', '🍓', '🫐', '🍒', '🍑', '🥭', '🍍', '🥝', '🍌', '🍉', '🍈', '🍏', '🫒', '🍑', '🥑', '🍆', '🌶️'],
+  },
+  {
+    label: '🥦 Vegetables',
+    emojis: ['🥦', '🥕', '🌽', '🌿', '🍄', '🧅', '🧄', '🥔', '🫛', '🥜', '🌰', '🍞', '🫚', '🌱', '🪴', '🌵', '🎋', '🍀', '🌾', '🌸'],
+  },
+  {
+    label: '🎮 Games',
+    emojis: ['🎮', '🕹️', '🎲', '🎯', '🎳', '🎱', '♟️', '🃏', '🀄', '🎰', '🧩', '🎴', '🪀', '🪁', '🎊', '🏆', '🥇', '🎖️', '🎟️', '🎪'],
+  },
+  {
+    label: '🦸 Characters',
+    emojis: ['🧑‍🚀', '🥷', '🧙‍♂️', '🧝‍♀️', '🧜‍♂️', '🧛‍♂️', '🧟‍♂️', '🧞‍♂️', '🦸', '🦹', '👺', '👹', '🤖', '👾', '🧑‍🎤', '🧑‍🎨', '🧑‍🔬', '🧑‍⚖️', '🧑‍🍳', '🧑‍🏴‍☠️'],
+  },
+  {
+    label: '😈 Funny Faces',
+    emojis: ['😈', '🤡', '💀', '👽', '🤪', '🥴', '😤', '🤯', '🥶', '🤬', '😎', '🥸', '🤓', '😏', '😒', '🙃', '🤑', '😝', '😜', '🫠'],
+  },
+];
+
+const ALL_AVATARS = AVATAR_GROUPS.flatMap((g) => g.emojis);
+
+const AvatarPicker = ({
+  selected,
+  onSelect,
+}: {
+  selected: string;
+  onSelect: (emoji: string) => void;
+}) => (
+  <div
+    className="max-h-44 overflow-y-auto pr-1 space-y-3"
+    style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
+  >
+    {AVATAR_GROUPS.map((group) => (
+      <div key={group.label}>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-1.5">{group.label}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {group.emojis.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => onSelect(emoji)}
+              className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
+                selected === emoji
+                  ? 'bg-gold-500/30 border border-gold-500/60 scale-110'
+                  : 'bg-white/5 border border-transparent hover:bg-white/10 hover:scale-105'
+              }`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 export default function MatchSetup() {
-  const { players, createMatch, setPage, isSaving } = useAppStore();
+  const { players, createMatch, setPage, isSaving, addPlayer } = useAppStore();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [totalRounds, setTotalRounds] = useState(10);
+
+  // Add-player inline form state
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newAvatar, setNewAvatar] = useState(ALL_AVATARS[0]);
+  const [isAdding, setIsAdding] = useState(false);
+
+  /* Only active players are eligible for a new match */
+  const activePlayers = players.filter((p) => p.isActive);
 
   const togglePlayer = (id: string) => {
     setSelectedIds((prev) => {
@@ -31,6 +105,21 @@ export default function MatchSetup() {
       setPage('liveMatch');
     } catch {
       // Error surfaced via global store banner
+    }
+  };
+
+  const handleAddPlayer = async () => {
+    if (!newName.trim()) return;
+    setIsAdding(true);
+    try {
+      await addPlayer(newName.trim(), newAvatar);
+      setNewName('');
+      setNewAvatar(ALL_AVATARS[0]);
+      setShowAdd(false);
+    } catch {
+      // Error surfaced via global store banner
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -71,13 +160,63 @@ export default function MatchSetup() {
         {/* Player selection */}
         <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.05s' }}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display text-lg font-semibold text-white">Select Players</h2>
-            <span className={`text-sm font-mono ${selectedIds.length === 4 ? 'text-jade-400' : 'text-white/40'}`}>
-              {selectedIds.length}/4
-            </span>
+            <div className="flex items-center gap-3">
+              <h2 className="font-display text-lg font-semibold text-white">Select Players</h2>
+              <span className={`text-sm font-mono ${selectedIds.length === 4 ? 'text-jade-400' : 'text-white/40'}`}>
+                {selectedIds.length}/4
+              </span>
+            </div>
+            {/* Add Player button */}
+            <button
+              onClick={() => { setShowAdd((v) => !v); setNewName(''); setNewAvatar(ALL_AVATARS[0]); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                showAdd
+                  ? 'bg-white/10 text-white/60'
+                  : 'bg-gold-500/10 hover:bg-gold-500/20 text-gold-400 hover:text-gold-300'
+              }`}
+            >
+              {showAdd ? <X size={13} /> : <Plus size={13} />}
+              {showAdd ? 'Cancel' : 'Add Player'}
+            </button>
           </div>
+
+          {/* Inline Add Player Form */}
+          {showAdd && (
+            <div className="glass-card rounded-2xl p-4 mb-3 animate-scale-in border border-gold-500/20">
+              <h3 className="text-sm font-semibold text-white mb-3">New Player</h3>
+
+              <div className="mb-3">
+                <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Name</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
+                  placeholder="Player name..."
+                  className="input-field"
+                  autoFocus
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Avatar</label>
+                <AvatarPicker selected={newAvatar} onSelect={setNewAvatar} />
+              </div>
+
+              <button
+                onClick={handleAddPlayer}
+                disabled={!newName.trim() || isAdding}
+                className="btn-primary w-full rounded-xl py-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check size={15} />
+                {isAdding ? 'Adding...' : 'Add Player'}
+              </button>
+            </div>
+          )}
+
+          {/* Active players list */}
           <div className="space-y-2">
-            {players.map((player) => {
+            {activePlayers.map((player) => {
               const isSelected = selectedIds.includes(player.id);
               const seatIdx = selectedIds.indexOf(player.id);
               const isFull = selectedIds.length === 4 && !isSelected;
@@ -110,9 +249,13 @@ export default function MatchSetup() {
               );
             })}
           </div>
-          {players.length < 4 && (
+
+          {/* Not enough active players warning */}
+          {activePlayers.length < 4 && (
             <div className="mt-3 p-3 rounded-xl bg-crimson-500/10 border border-crimson-500/20 text-crimson-400 text-sm text-center">
-              Need at least 4 players. Add more in Players tab.
+              {activePlayers.length === 0
+                ? 'No active players. Add players above to get started.'
+                : `Need ${4 - activePlayers.length} more active player${4 - activePlayers.length > 1 ? 's' : ''}. Add them above.`}
             </div>
           )}
         </div>
@@ -123,7 +266,7 @@ export default function MatchSetup() {
             <h3 className="text-sm font-medium text-white/60 uppercase tracking-wider mb-4">Seat Order</h3>
             <div className="space-y-2">
               {selectedIds.map((id, idx) => {
-                const player = players.find((p) => p.id === id);
+                const player = activePlayers.find((p) => p.id === id);
                 if (!player) return null;
                 return (
                   <div key={id} className="flex items-center gap-3">

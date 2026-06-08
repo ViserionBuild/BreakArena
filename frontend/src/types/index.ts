@@ -3,6 +3,7 @@ export interface Player {
   name: string;
   avatar: string; // emoji
   color: string;
+  isActive: boolean;
   createdAt: string;
   stats: PlayerStats;
 }
@@ -49,4 +50,12 @@ export interface RoundScore {
   score: number;
 }
 
-export type Page = 'dashboard' | 'players' | 'matchSetup' | 'liveMatch' | 'history' | 'analytics';
+export interface Group {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type Page = 'groupAuth' | 'dashboard' | 'players' | 'matchSetup' | 'liveMatch' | 'history' | 'analytics';

@@ -4,6 +4,9 @@ import { Player, Match } from '../../types';
 import { computePlayerActualTotal } from '../../utils';
 import PlayerAvatar from '../ui/PlayerAvatar';
 
+// Distinct chart colors that are always different from one another
+const CHART_COLORS = ['#fbbf24', '#f87171', '#4ade80', '#a78bfa'];
+
 interface ScoreGraphProps {
   match: Match;
   players: Player[];
@@ -88,18 +91,25 @@ export default function ScoreGraph({ match, players }: ScoreGraphProps) {
           />
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="3 3" />
-          {match.players.map((mp) => {
+          {match.players.map((mp, seatIndex) => {
             const player = players.find((p) => p.id === mp.playerId);
             if (!player) return null;
+            // Use the player's stored color when it is unique; fall back to the
+            // seat-indexed palette so all four lines are always visually distinct.
+            const DEFAULT_COLOR = '#fbbf24';
+            const lineColor =
+              player.color && player.color !== DEFAULT_COLOR
+                ? player.color
+                : CHART_COLORS[seatIndex % CHART_COLORS.length];
             return (
               <Line
                 key={mp.playerId}
                 type="monotone"
                 dataKey={player.name}
-                stroke={player.color}
+                stroke={lineColor}
                 strokeWidth={2.5}
-                dot={{ fill: player.color, r: 3, strokeWidth: 0 }}
-                activeDot={{ r: 6, fill: player.color, stroke: '#0a0a0f', strokeWidth: 2 }}
+                dot={{ fill: lineColor, r: 3, strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: lineColor, stroke: '#0a0a0f', strokeWidth: 2 }}
               />
             );
           })}
@@ -107,13 +117,20 @@ export default function ScoreGraph({ match, players }: ScoreGraphProps) {
       </ResponsiveContainer>
 
       <div className="flex flex-wrap justify-center gap-4 mt-2 pt-3 border-t border-white/5">
-        {legendPlayers.map((player) => (
-          <div key={player.id} className="flex items-center gap-2 text-xs text-white/60">
-            <span className="w-3 h-0.5 rounded-full shrink-0" style={{ background: player.color }} />
-            <PlayerAvatar avatar={player.avatar} color={player.color} name={player.name} size="sm" />
-            <span className="font-medium text-white/80">{player.name}</span>
-          </div>
-        ))}
+        {legendPlayers.map((player, seatIndex) => {
+          const DEFAULT_COLOR = '#fbbf24';
+          const legendColor =
+            player.color && player.color !== DEFAULT_COLOR
+              ? player.color
+              : CHART_COLORS[seatIndex % CHART_COLORS.length];
+          return (
+            <div key={player.id} className="flex items-center gap-2 text-xs text-white/60">
+              <span className="w-3 h-0.5 rounded-full shrink-0" style={{ background: legendColor }} />
+              <PlayerAvatar avatar={player.avatar} color={legendColor} name={player.name} size="sm" />
+              <span className="font-medium text-white/80">{player.name}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

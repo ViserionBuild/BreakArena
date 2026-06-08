@@ -1,5 +1,5 @@
 import { Match, Player, Round } from '../types';
-import { calculateCallBreakScore, PLAYER_COLORS } from '../utils';
+import { calculateCallBreakScore, normalizeIndianTimestamp, PLAYER_COLORS } from '../utils';
 import { ApiMatch, ApiPlayer, ApiRound } from './types';
 
 export const PLACEHOLDER_ROUND_PREFIX = '__placeholder__';
@@ -14,7 +14,8 @@ export function mapPlayer(api: ApiPlayer): Player {
     name: api.name,
     avatar: api.avatar || '🃏',
     color: api.color || PLAYER_COLORS[0],
-    createdAt: api.created_at,
+    isActive: api.is_active ?? true,
+    createdAt: normalizeIndianTimestamp(api.created_at) ?? api.created_at,
     stats: {
       totalMatches: api.stats?.total_matches ?? 0,
       wins: api.stats?.matches_won ?? 0,
@@ -133,8 +134,8 @@ export function mapMatch(apiMatch: ApiMatch): Match {
     winnerId: apiMatch.winner_id || undefined,
     matchDate: apiMatch.match_date,
     matchNumber: apiMatch.match_number,
-    createdAt: apiMatch.created_at,
-    endedAt: apiMatch.ended_at || undefined,
+    createdAt: normalizeIndianTimestamp(apiMatch.created_at) ?? apiMatch.created_at,
+    endedAt: normalizeIndianTimestamp(apiMatch.ended_at),
     totalRounds: apiMatch.total_rounds,
     players: mapMatchPlayers(apiMatch, playerIds),
     rounds,

@@ -22,7 +22,7 @@ SELECT
     rs.score
 FROM rounds r
 JOIN round_scores rs ON rs.round_id = r.id
-JOIN users u ON u.id = rs.user_id
+JOIN players u ON u.id = rs.user_id
 WHERE r.match_id = '22222222-0000-0000-0000-000000000001'
 ORDER BY r.round_number, u.name;
 
@@ -38,7 +38,7 @@ SELECT
     ) AS cumulative_score
 FROM rounds r
 JOIN round_scores rs ON rs.round_id = r.id
-JOIN users u ON u.id = rs.user_id
+JOIN players u ON u.id = rs.user_id
 WHERE r.match_id = '22222222-0000-0000-0000-000000000001'
 ORDER BY r.round_number, rs.user_id;
 
@@ -49,7 +49,7 @@ SELECT
     m.ended_at,
     u.name AS winner
 FROM matches m
-LEFT JOIN users u ON u.id = m.winner_id
+LEFT JOIN players u ON u.id = m.winner_id
 WHERE m.status = 'completed'
 ORDER BY m.ended_at DESC;
 
@@ -60,7 +60,7 @@ SELECT
     u.name AS winner_name,
     COUNT(*) AS wins
 FROM matches m
-JOIN users u ON u.id = m.winner_id
+JOIN players u ON u.id = m.winner_id
 WHERE m.status = 'completed'
   AND m.id IN (
       SELECT match_id FROM match_players WHERE user_id = '11111111-0000-0000-0000-000000000001'

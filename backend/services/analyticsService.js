@@ -86,17 +86,18 @@ const getMatchAnalytics = async (matchId) => {
 };
 
 /**
- * Get global leaderboard — aggregate stats across all completed matches.
+ * Get global leaderboard — aggregate stats across all completed matches for this group.
  */
-const getGlobalLeaderboard = async () => {
+const getGlobalLeaderboard = async (groupId) => {
   const { data, error } = await supabase
-    .from('users')
+    .from('players')
     .select(
       `
       id, name, avatar,
       round_scores ( score, rounds ( match_id, matches ( status, winner_id ) ) )
     `
-    );
+    )
+    .eq('group_id', groupId);
 
   if (error) throw error;
 
@@ -133,4 +134,79 @@ const getGlobalLeaderboard = async () => {
   return leaderboard.sort((a, b) => b.total_score - a.total_score);
 };
 
-module.exports = { getMatchAnalytics, getGlobalLeaderboard };
+/**
+ * Per-player bid accuracy across all completed matches for this group.
+ * Scans p1..p4 slots in every round of every completed match.
+ * Returns array of { playerId, totalRounds, greenCount, greenAccuracy, goodScore, netAccuracy }
+ */
+const getPlayerBidAccuracy = async (groupId) => {
+  // Fetch all rounds that belong to completed matches in this group, along with the 4 player IDs
+  const { data: rows, error } = await supabase
+    .from('rounds')
+    .select(
+      `
+      p1_bid, p1_actual_wins,
+      p2_bid, p2_actual_wins,
+      p3_bid, p3_actual_wins,
+      p4_bid, p4_actual_wins,
+      matches!inner ( id, status, p1_id, p2_id, p3_id, p4_id, group_id )
+    `
+    )
+    .eq('matches.status', 'completed')
+    .eq('matches.group_id', groupId);
+
+  if (error) throw error;
+
+  // Accumulate stats per player
+  const statsMap = {}; // playerId -> { totalRounds, greenCount, goodScore }
+
+  const ensure = (id) => {
+    if (!id) return;
+    if (!statsMap[id]) statsMap[id] = { totalRounds: 0, greenCount: 0, goodScore: 0 };
+  };
+
+  for (const row of rows ?? []) {
+    const m = row.matches;
+    const slots = [
+      { id: m.p1_id, bid: Number(row.p1_bid), wins: Number(row.p1_actual_wins) },
+      { id: m.p2_id, bid: Number(row.p2_bid), wins: Number(row.p2_actual_wins) },
+      { id: m.p3_id, bid: Number(row.p3_bid), wins: Number(row.p3_actual_wins) },
+      { id: m.p4_id, bid: Number(row.p4_bid), wins: Number(row.p4_actual_wins) },
+    ];
+
+    for (const { id, bid, wins } of slots) {
+      if (!id || (bid === 0 && wins === 0)) continue; // skip empty / unplayed rounds
+      ensure(id);
+      statsMap[id].totalRounds++;
+
+      if (bid === wins) {
+        statsMap[id].greenCount++;
+        statsMap[id].goodScore += 1;
+      } else if (bid + 0.1 === wins) {
+        statsMap[id].goodScore += 0.5;
+      } else if (bid + 0.2 === wins) {
+        statsMap[id].goodScore += 0.25;
+      } else if (wins - bid >= 0.3) {
+        const diff_int = (((wins - bid) * 10) - 2) * 0.2;
+        statsMap[id].goodScore -= diff_int;
+      }
+    }
+  }
+
+  return Object.entries(statsMap).map(([playerId, s]) => {
+    const greenAccuracy = s.totalRounds > 0
+      ? Math.round((s.greenCount / s.totalRounds) * 100)
+      : 0;
+    const rawNet = s.totalRounds > 0 ? (s.goodScore / s.totalRounds) * 100 : 0;
+    const netAccuracy = Math.min(100, Math.max(0, Math.round(rawNet)));
+    return {
+      playerId,
+      totalRounds: s.totalRounds,
+      greenCount: s.greenCount,
+      greenAccuracy,
+      netAccuracy,
+    };
+  });
+};
+
+module.exports = { getMatchAnalytics, getGlobalLeaderboard, getPlayerBidAccuracy };

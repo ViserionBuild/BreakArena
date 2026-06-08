@@ -32,6 +32,20 @@ export default function MatchRankingTable({ match, players }: MatchRankingTableP
       return b.greenCount - a.greenCount;
     });
 
+  const getScoreNeededForNextRank = (index: number): number | null => {
+    if (index === 0) return null;
+
+    const current = rankedPlayers[index];
+    const nextRank = rankedPlayers[index - 1];
+    const tieIsEnough = current.greenCount > nextRank.greenCount;
+    const needed = nextRank.actualTotal - current.actualTotal + (tieIsEnough ? 0 : 0.1);
+
+    return Math.max(Math.round(needed * 10) / 10, 0);
+  };
+
+  const formatScoreNeeded = (score: number): string =>
+    Number.isInteger(score) ? String(score) : score.toFixed(1);
+
   return (
     <div className="glass-card rounded-3xl overflow-hidden">
       <div className="px-4 py-3 border-b border-white/5">
@@ -47,25 +61,38 @@ export default function MatchRankingTable({ match, players }: MatchRankingTableP
             </tr>
           </thead>
           <tbody>
-            {rankedPlayers.map((entry, index) => (
-              <tr key={entry.playerId}>
-                <td>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={`rank-badge rank-${index + 1} shrink-0`}>{index + 1}</span>
-                    <PlayerAvatar avatar={entry.player.avatar} color={entry.player.color} name={entry.player.name} size="sm" />
-                    <span className="text-white font-medium truncate">{entry.player.name}</span>
-                  </div>
-                </td>
-                <td className={`font-mono font-bold ${entry.actualTotal >= 0 ? 'text-gold-400' : 'text-crimson-400'}`}>
-                  {formatActualTotal(entry.actualTotal)}
-                </td>
-                <td>
-                  <span className="inline-flex min-w-8 justify-center rounded-md bg-jade-400/15 px-2 py-1 font-mono font-bold text-jade-400">
-                    {entry.greenCount}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {rankedPlayers.map((entry, index) => {
+              const scoreNeeded = getScoreNeededForNextRank(index);
+
+              return (
+                <tr key={entry.playerId}>
+                  <td>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className={`rank-badge rank-${index + 1} shrink-0`}>{index + 1}</span>
+                      <PlayerAvatar avatar={entry.player.avatar} color={entry.player.color} name={entry.player.name} size="sm" />
+                      <span className="text-white font-medium truncate">{entry.player.name}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex items-baseline gap-0">
+                      <span className={`font-mono font-bold ${entry.actualTotal >= 0 ? 'text-gold-400' : 'text-crimson-400'}`}>
+                        {formatActualTotal(entry.actualTotal)}
+                      </span>
+                      {scoreNeeded !== null && (
+                        <span className="whitespace-nowrap text-[10px] font-medium text-white/35">
+                          need +{formatScoreNeeded(scoreNeeded)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="inline-flex min-w-6 justify-center rounded-md bg-jade-400/15 px-2 py-1 font-mono font-bold text-jade-400">
+                      {entry.greenCount}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
