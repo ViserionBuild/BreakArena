@@ -1,7 +1,7 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Cell, LabelList } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import PlayerAvatar from '../components/ui/PlayerAvatar';
-import { Trophy, Target, Zap, ChevronDown, Users, CheckSquare, X } from 'lucide-react';
+import { Trophy, Target, Zap, ChevronDown, Users, CheckSquare, X, ArrowUpDown } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../api/client';
 import type { Player, Match } from '../types';
@@ -22,15 +22,49 @@ type PlayerStatsSectionProps = {
   playerAccuracy: (id: string) => PlayerAccuracyEntry;
 };
 
+type SortKey = 'wins' | 'winRate' | 'matches' | 'greenAcc' | 'netAcc';
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'matches',  label: 'Total Matches Played' },
+  { key: 'wins',     label: 'Wins' },
+  { key: 'winRate',  label: 'Win %' },
+  { key: 'greenAcc', label: 'Green Accuracy' },
+  { key: 'netAcc',   label: 'Net Accuracy' },
+];
+
 function PlayerStatsSection({ players, matches, playerAccuracy }: PlayerStatsSectionProps) {
+  const [sortKey, setSortKey] = useState<SortKey>('winRate');
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
   const sorted = [...players]
     .filter((p) => p.isActive)
-    .sort((a, b) => b.stats.wins - a.stats.wins);
+    .sort((a, b) => {
+      switch (sortKey) {
+        case 'matches':  return b.stats.totalMatches - a.stats.totalMatches;
+        case 'wins':     return b.stats.wins - a.stats.wins;
+        case 'winRate':  return b.stats.winRate - a.stats.winRate;
+        case 'greenAcc': return playerAccuracy(b.id).greenAccuracy - playerAccuracy(a.id).greenAccuracy;
+        case 'netAcc':   return playerAccuracy(b.id).netAccuracy - playerAccuracy(a.id).netAccuracy;
+        default:         return b.stats.wins - a.stats.wins;
+      }
+    });
 
   const allIds = sorted.map((p) => p.id);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(allIds));
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setSortDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   // When a brand-new player appears, add them to the selection
   // WITHOUT resetting the user's existing picks.
@@ -80,9 +114,81 @@ function PlayerStatsSection({ players, matches, playerAccuracy }: PlayerStatsSec
 
   return (
     <div className="mb-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-      {/* Section header + dropdown */}
+      {/* Section header + dropdowns */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-lg font-semibold text-white">Player Stats</h2>
+
+        <div className="flex items-center gap-2">
+        {/* Sort dropdown */}
+        <div className="relative" ref={sortDropdownRef}>
+          <button
+            onClick={() => setSortDropdownOpen((o) => !o)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all"
+            style={{
+              background: sortDropdownOpen ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)',
+              border: sortDropdownOpen ? '1px solid rgba(251,191,36,0.4)' : '1px solid rgba(255,255,255,0.1)',
+              color: sortDropdownOpen ? '#fbbf24' : 'rgba(255,255,255,0.6)',
+            }}
+          >
+            <ArrowUpDown size={13} />
+            <span className="hidden sm:inline">Sort</span>
+            <span
+              className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}
+            >
+              {SORT_OPTIONS.find((o) => o.key === sortKey)?.label.split(' ')[0]}
+            </span>
+            <ChevronDown
+              size={13}
+              style={{ transform: sortDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            />
+          </button>
+
+          {sortDropdownOpen && (
+            <div
+              className="absolute right-0 mt-2 z-50 min-w-[200px] rounded-2xl overflow-hidden"
+              style={{
+                background: 'rgba(15,12,30,0.95)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              }}
+            >
+              <div
+                className="px-3 py-2"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Sort By</span>
+              </div>
+              <div className="py-1">
+                {SORT_OPTIONS.map((opt) => {
+                  const active = sortKey === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => { setSortKey(opt.key); setSortDropdownOpen(false); }}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 transition-all text-left"
+                      style={{ background: active ? 'rgba(251,191,36,0.08)' : 'transparent' }}
+                    >
+                      <span
+                        className="text-sm font-medium"
+                        style={{ color: active ? '#fbbf24' : 'rgba(255,255,255,0.55)' }}
+                      >
+                        {opt.label}
+                      </span>
+                      {active && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ background: '#fbbf24', boxShadow: '0 0 6px #fbbf24' }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Comparison dropdown */}
         <div className="relative" ref={dropdownRef}>
@@ -222,6 +328,7 @@ function PlayerStatsSection({ players, matches, playerAccuracy }: PlayerStatsSec
             </div>
           )}
         </div>
+        </div> {/* end flex gap-2 */}
       </div>
 
       {/* Player cards grid */}
@@ -408,6 +515,8 @@ export default function Analytics() {
     .map((p) => ({
       name: p.name,
       winRate: p.stats.winRate,
+      wins: p.stats.wins,
+      totalMatches: p.stats.totalMatches,
       color: p.color,
       avatar: p.avatar,
     }));
@@ -423,12 +532,20 @@ export default function Analytics() {
       matches: p.stats.totalMatches,
     }));
 
-  const CustomTooltip = ({ active, payload }: {active?: boolean, payload?: Array<{payload: {name: string; color: string}; value: number; name: string}> }) => {
+  const WinRateTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; color: string; wins: number; totalMatches: number; winRate: number } }> }) => {
     if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
     return (
-      <div className="glass-card rounded-xl p-3 text-xs">
-        <div className="text-white font-medium mb-1">{payload[0].payload.name}</div>
-        <div className="text-gold-400 font-mono">{payload[0].value.toFixed(1)}{payload[0].name === 'winRate' ? '%' : ''}</div>
+      <div className="glass-card rounded-xl p-3 text-xs min-w-[120px]">
+        <div className="text-white font-semibold mb-1.5">{d.name}</div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-white/40">Wins / Played</span>
+          <span className="font-mono font-bold" style={{ color: d.color }}>{d.wins} / {d.totalMatches}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 mt-1">
+          <span className="text-white/40">Win Rate</span>
+          <span className="font-mono font-bold" style={{ color: d.color }}>{d.winRate.toFixed(1)}%</span>
+        </div>
       </div>
     );
   };
@@ -469,15 +586,21 @@ export default function Analytics() {
                 <Target size={16} className="text-gold-400" />
                 <h2 className="font-display text-lg font-semibold text-white">Win Rate</h2>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={winRateData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={winRateData} margin={{ top: 24, right: 5, bottom: 5, left: 0 }}>
                   <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} axisLine={false} tickLine={false} width={30} domain={[0, 100]} unit="%" />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<WinRateTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   <Bar dataKey="winRate" radius={[6, 6, 0, 0]}>
                     {winRateData.map((entry, i) => (
                       <Cell key={i} fill={entry.color} fillOpacity={0.85} />
                     ))}
+                    <LabelList
+                      dataKey="winRate"
+                      position="top"
+                      formatter={(v: number) => `${v.toFixed(1)}%`}
+                      style={{ fill: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

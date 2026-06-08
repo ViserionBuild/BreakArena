@@ -4,8 +4,8 @@ import { Player, Match } from '../../types';
 import { computePlayerActualTotal } from '../../utils';
 import PlayerAvatar from '../ui/PlayerAvatar';
 
-// Distinct chart colors that are always different from one another
-const CHART_COLORS = ['#fbbf24', '#f87171', '#4ade80', '#a78bfa'];
+// Fixed seat-position colors: 1st=Yellow, 2nd=Sky Blue, 3rd=Red, 4th=Green
+const SEAT_COLORS = ['#fadf33ff', '#4dc1f3ff', '#f77d7dff', '#50f98eff'];
 
 interface ScoreGraphProps {
   match: Match;
@@ -94,13 +94,7 @@ export default function ScoreGraph({ match, players }: ScoreGraphProps) {
           {match.players.map((mp, seatIndex) => {
             const player = players.find((p) => p.id === mp.playerId);
             if (!player) return null;
-            // Use the player's stored color when it is unique; fall back to the
-            // seat-indexed palette so all four lines are always visually distinct.
-            const DEFAULT_COLOR = '#fbbf24';
-            const lineColor =
-              player.color && player.color !== DEFAULT_COLOR
-                ? player.color
-                : CHART_COLORS[seatIndex % CHART_COLORS.length];
+            const lineColor = SEAT_COLORS[seatIndex % SEAT_COLORS.length];
             return (
               <Line
                 key={mp.playerId}
@@ -118,11 +112,7 @@ export default function ScoreGraph({ match, players }: ScoreGraphProps) {
 
       <div className="flex flex-wrap justify-center gap-4 mt-2 pt-3 border-t border-white/5">
         {legendPlayers.map((player, seatIndex) => {
-          const DEFAULT_COLOR = '#fbbf24';
-          const legendColor =
-            player.color && player.color !== DEFAULT_COLOR
-              ? player.color
-              : CHART_COLORS[seatIndex % CHART_COLORS.length];
+          const legendColor = SEAT_COLORS[seatIndex % SEAT_COLORS.length];
           return (
             <div key={player.id} className="flex items-center gap-2 text-xs text-white/60">
               <span className="w-3 h-0.5 rounded-full shrink-0" style={{ background: legendColor }} />
