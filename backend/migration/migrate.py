@@ -34,7 +34,7 @@ from psycopg2.extras import RealDictCursor
 # ──────────────────────────────────────────────────────────────────────────────
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@127.0.0.1:54329/postgres"  # ← change me
+    "postgresql://postgres:BreakArena%407878@db.glgepcayubpuyfonndzu.supabase.co:5432/postgres"
 )
 EXCEL_FILE = os.getenv("EXCEL_FILE", "callbreak_migration.xlsx")
 

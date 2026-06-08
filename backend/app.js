@@ -18,8 +18,6 @@ const groupRoutes = require('./routes/groups');
 
 const app = express();
 
-// ── Security headers ─────────────────────────────────────────────────────────
-app.use(helmet());
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
@@ -42,6 +40,9 @@ app.use(
     credentials: true,
   })
 );
+
+// ── Security headers ─────────────────────────────────────────────────────────
+app.use(helmet());
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const isProduction = process.env.NODE_ENV === 'production';
