@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Undo2, Flag, Redo2, Plus, Minus } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Undo2, Flag, Redo2, Plus, Minus, Loader2, CheckCheck } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { MAX_MATCH_ROUNDS } from '../utils';
 import RoundScoreTable from '../components/scoreboard/RoundScoreTable';
@@ -22,8 +22,12 @@ export default function LiveMatch() {
     matches,
     fetchMatch,
     isSaving,
+    error,
   } = useAppStore();
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [roundActionLoading, setRoundActionLoading] = useState<'add' | 'reduce' | null>(null);
+  const wasSaving = useRef(false);
 
   const match = getActiveMatch() || matches.find((m) => m.status === 'active' || m.status === 'paused') || null;
 
@@ -33,6 +37,26 @@ export default function LiveMatch() {
       if (match.totalRounds) initializeMatchRounds(match.id);
     }
   }, [fetchMatch, initializeMatchRounds, match?.id, match?.totalRounds]);
+
+  useEffect(() => {
+    let savedTimer: ReturnType<typeof window.setTimeout> | undefined;
+
+    if (isSaving) {
+      wasSaving.current = true;
+      setShowSaved(false);
+      return undefined;
+    }
+
+    if (wasSaving.current && !error) {
+      setShowSaved(true);
+      savedTimer = window.setTimeout(() => setShowSaved(false), 1600);
+    }
+
+    wasSaving.current = false;
+    return () => {
+      if (savedTimer) window.clearTimeout(savedTimer);
+    };
+  }, [error, isSaving]);
 
   if (!match) {
     return (
@@ -59,10 +83,13 @@ export default function LiveMatch() {
   const atMinRounds = (match.totalRounds ?? 0) <= 1;
 
   const handleAddRound = async () => {
+    setRoundActionLoading('add');
     try {
       await increaseMatchRounds(match.id);
     } catch {
       // Error surfaced via global store banner
+    } finally {
+      setRoundActionLoading(null);
     }
   };
 
@@ -72,9 +99,12 @@ export default function LiveMatch() {
     if (hasScores && !window.confirm(`Delete round ${lastRound.roundNumber}? This cannot be undone.`)) return;
 
     try {
+      setRoundActionLoading('reduce');
       await reduceMatchRounds(match.id);
     } catch {
       // Error surfaced via global store banner
+    } finally {
+      setRoundActionLoading(null);
     }
   };
 
@@ -108,7 +138,7 @@ export default function LiveMatch() {
                 <div className="inline-flex items-center gap-1">
                   <button
                     onClick={handleReduceRound}
-                    disabled={isSaving || atMinRounds}
+                    disabled={isSaving || Boolean(roundActionLoading) || atMinRounds}
                     className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     title={atMinRounds ? 'Minimum 1 round' : 'Reduce round'}
                   >
@@ -117,7 +147,7 @@ export default function LiveMatch() {
                   </button>
                   <button
                     onClick={handleAddRound}
-                    disabled={isSaving || atMaxRounds}
+                    disabled={isSaving || Boolean(roundActionLoading) || atMaxRounds}
                     className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-0.5 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     title={atMaxRounds ? `Maximum ${MAX_MATCH_ROUNDS} rounds` : 'Add round'}
                   >
@@ -129,6 +159,19 @@ export default function LiveMatch() {
             </div>
           </div>
           <div className="flex gap-2">
+            <div
+              className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center transition-all ${
+                isSaving || showSaved ? 'opacity-100' : 'opacity-0'
+              }`}
+              title={isSaving ? 'Saving scores' : showSaved ? 'Scores saved' : 'Save status'}
+              aria-live="polite"
+            >
+              {isSaving ? (
+                <Loader2 size={18} className="animate-spin text-gold-400" />
+              ) : (
+                <CheckCheck size={18} className="text-jade-400" />
+              )}
+            </div>
             <button
               onClick={() => undoLastRound(match.id)}
               disabled={match.rounds.length === 0}
@@ -180,6 +223,22 @@ export default function LiveMatch() {
       </div>
 
       {/* End Match Confirm */}
+      {roundActionLoading && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: 'rgba(10,10,15,0.82)', backdropFilter: 'blur(8px)' }}
+          aria-live="assertive"
+          aria-busy="true"
+        >
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 size={34} className="animate-spin text-gold-400" />
+            <div className="text-sm font-semibold text-white/80">
+              {roundActionLoading === 'add' ? 'Adding round...' : 'Reducing round...'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showEndConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(10,10,15,0.9)', backdropFilter: 'blur(8px)' }}>
           <div className="glass-card rounded-3xl p-6 w-full max-w-sm animate-scale-in">

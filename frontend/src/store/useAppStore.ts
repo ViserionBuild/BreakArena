@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { matchesApi, playersApi, roundsApi, groupsApi } from '../api';
-import { isPlaceholderRoundId } from '../api/mappers';
+import { isPlaceholderRoundId, PLACEHOLDER_ROUND_PREFIX } from '../api/mappers';
 import { ApiError } from '../api/client';
 import { Group, Player, Match, Page } from '../types';
+import { calculateCallBreakScore } from '../utils';
 
 interface AppState {
   currentPage: Page;
@@ -67,6 +68,55 @@ const mergeMatch = (matches: Match[], match: Match): Match[] => {
   return matches.map((entry) => (entry.id === match.id ? match : entry));
 };
 
+const recalculateMatchPlayers = (match: Match, rounds: Match['rounds']): Match['players'] => {
+  const playersWithTotals = match.players.map((matchPlayer) => {
+    const totalScore = rounds.reduce((sum, round) => {
+      const score = round.scores.find((entry) => entry.playerId === matchPlayer.playerId);
+      return sum + (score?.score ?? 0);
+    }, 0);
+
+    return {
+      ...matchPlayer,
+      totalScore: Math.round(totalScore * 10) / 10,
+    };
+  });
+
+  const rankedPlayers = [...playersWithTotals].sort((a, b) => b.totalScore - a.totalScore);
+  return playersWithTotals.map((matchPlayer) => ({
+    ...matchPlayer,
+    prevRank: matchPlayer.rank,
+    rank: rankedPlayers.findIndex((entry) => entry.playerId === matchPlayer.playerId) + 1,
+  }));
+};
+
+const applyRoundScoresUpdate = (
+  match: Match,
+  roundId: string,
+  updates: { playerId: string; bid: number; actualWins: number }[]
+): Match => {
+  const updatesByPlayerId = new Map(updates.map((update) => [update.playerId, update]));
+  const rounds = match.rounds.map((round) => {
+    if (round.id !== roundId) return round;
+
+    return {
+      ...round,
+      scores: round.scores.map((score) => {
+        const update = updatesByPlayerId.get(score.playerId);
+        if (!update) return score;
+
+        return {
+          ...score,
+          bid: update.bid,
+          actualWins: update.actualWins,
+          score: calculateCallBreakScore(update.bid, update.actualWins),
+        };
+      }),
+    };
+  });
+
+  return { ...match, rounds, players: recalculateMatchPlayers(match, rounds) };
+};
+
 const isLiveMatch = (match: Match): boolean => match.status === 'active' || match.status === 'paused';
 
 const getSelectedLiveMatchId = (matches: Match[], selectedMatchId: string | null): string | null => {
@@ -77,6 +127,22 @@ const getSelectedLiveMatchId = (matches: Match[], selectedMatchId: string | null
 
 const getErrorMessage = (error: unknown) =>
   error instanceof ApiError ? error.message : 'Something went wrong. Please try again.';
+
+const getPlaceholderRoundNumber = (roundId: string): number | null => {
+  if (!isPlaceholderRoundId(roundId)) return null;
+  const roundNumber = Number(roundId.replace(PLACEHOLDER_ROUND_PREFIX, ''));
+  return Number.isNaN(roundNumber) ? null : roundNumber;
+};
+
+const findRoundByIdOrPlaceholderNumber = (match: Match, roundId: string) => {
+  const placeholderRoundNumber = getPlaceholderRoundNumber(roundId);
+  return (
+    match.rounds.find((entry) => entry.id === roundId) ??
+    (placeholderRoundNumber === null
+      ? undefined
+      : match.rounds.find((entry) => entry.roundNumber === placeholderRoundNumber))
+  );
+};
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -288,7 +354,7 @@ export const useAppStore = create<AppState>()(
         const match = get().matches.find((entry) => entry.id === matchId);
         if (!match) return;
 
-        const round = match.rounds.find((entry) => entry.id === roundId);
+        const round = findRoundByIdOrPlaceholderNumber(match, roundId);
         if (!round) return;
 
         const playerScores = round.scores.map((score) => ({
@@ -297,15 +363,26 @@ export const useAppStore = create<AppState>()(
           actual_wins: score.playerId === playerId ? actualWins : score.actualWins,
         }));
 
-        set({ isSaving: true, error: null });
+        const optimisticMatch = applyRoundScoresUpdate(match, round.id, [{ playerId, bid, actualWins }]);
+
+        set((state) => ({
+          matches: mergeMatch(state.matches, optimisticMatch),
+          isSaving: true,
+          error: null,
+        }));
+
         try {
-          const updatedMatch = await roundsApi.saveRoundScores(match, roundId, playerScores);
+          const updatedMatch = await roundsApi.saveRoundScores(match, round.id, playerScores);
           set((state) => ({
             matches: mergeMatch(state.matches, updatedMatch),
             isSaving: false,
           }));
         } catch (error) {
-          set({ isSaving: false, error: getErrorMessage(error) });
+          set((state) => ({
+            matches: mergeMatch(state.matches, match),
+            isSaving: false,
+            error: getErrorMessage(error),
+          }));
           throw error;
         }
       },
@@ -346,18 +423,45 @@ export const useAppStore = create<AppState>()(
         // Not implemented on backend yet
       },
 
-      deleteRound: async (_matchId, roundId) => {
-        if (isPlaceholderRoundId(roundId)) return;
+      deleteRound: async (matchId, roundId) => {
+        const match = get().matches.find((entry) => entry.id === matchId);
+        if (!match) return;
 
-        set({ isSaving: true, error: null });
+        const round = findRoundByIdOrPlaceholderNumber(match, roundId);
+        if (!round) return;
+
+        const playerScores = round.scores.map((score) => ({
+          user_id: score.playerId,
+          bid: 0,
+          actual_wins: 0,
+        }));
+        const optimisticMatch = applyRoundScoresUpdate(
+          match,
+          round.id,
+          round.scores.map((score) => ({
+            playerId: score.playerId,
+            bid: 0,
+            actualWins: 0,
+          }))
+        );
+
+        set((state) => ({
+          matches: mergeMatch(state.matches, optimisticMatch),
+          isSaving: true,
+          error: null,
+        }));
         try {
-          const match = await roundsApi.deleteRound(roundId);
+          const updatedMatch = await roundsApi.saveRoundScores(match, round.id, playerScores);
           set((state) => ({
-            matches: mergeMatch(state.matches, match),
+            matches: mergeMatch(state.matches, updatedMatch),
             isSaving: false,
           }));
         } catch (error) {
-          set({ isSaving: false, error: getErrorMessage(error) });
+          set((state) => ({
+            matches: mergeMatch(state.matches, match),
+            isSaving: false,
+            error: getErrorMessage(error),
+          }));
           throw error;
         }
       },
